@@ -1,0 +1,23 @@
+# Build
+build/
+cmake-build-*/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# Python venv
+.venv/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Compiled objects
+*.o
+*.a
+*.so
+*.dylib
