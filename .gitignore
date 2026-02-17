@@ -21,3 +21,18 @@ Thumbs.db
 *.a
 *.so
 *.dylib
+*.pyd
+
+# Python package build
+*.egg-info/
+dist/
+wheelhouse/
+_skbuild/
+__pycache__/
+*.pyc
+
+# Jupyter
+.ipynb_checkpoints/
+
+# tetrad linked directory
+tetrad/
