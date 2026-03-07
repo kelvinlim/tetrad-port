@@ -5,6 +5,7 @@
 #include <nanobind/eigen/dense.h>
 
 #include "data/data_set.h"
+#include "data/knowledge.h"
 #include "search/ind_test_fisher_z.h"
 #include "search/pc.h"
 #include "search/fges.h"
@@ -61,7 +62,8 @@ static PcResult run_pc_raw(
     const std::vector<std::string>& col_names,
     double alpha,
     int depth,
-    bool verbose
+    bool verbose,
+    const Knowledge& knowledge = Knowledge()
 ) {
     if (static_cast<int>(col_names.size()) != data.cols()) {
         throw std::invalid_argument(
@@ -76,6 +78,7 @@ static PcResult run_pc_raw(
     Pc pc(&test);
     pc.setDepth(depth);
     pc.setVerbose(verbose);
+    if (!knowledge.isEmpty()) pc.setKnowledge(knowledge);
 
     Graph g = pc.search();
 
@@ -102,7 +105,8 @@ static SearchResult run_fges_raw(
     double penalty_discount,
     bool faithfulness_assumed,
     int max_degree,
-    bool verbose
+    bool verbose,
+    const Knowledge& knowledge = Knowledge()
 ) {
     if (static_cast<int>(col_names.size()) != data.cols()) {
         throw std::invalid_argument(
@@ -119,6 +123,7 @@ static SearchResult run_fges_raw(
     fges.setFaithfulnessAssumed(faithfulness_assumed);
     fges.setVerbose(verbose);
     if (max_degree > 0) fges.setMaxDegree(max_degree);
+    if (!knowledge.isEmpty()) fges.setKnowledge(knowledge);
 
     Graph g = fges.search();
 
@@ -135,7 +140,8 @@ static SearchResult run_gfci_raw(
     bool complete_rule_set,
     int max_disc_path_length,
     bool faithfulness_assumed,
-    bool verbose
+    bool verbose,
+    const Knowledge& knowledge = Knowledge()
 ) {
     if (static_cast<int>(col_names.size()) != data.cols()) {
         throw std::invalid_argument(
@@ -156,6 +162,7 @@ static SearchResult run_gfci_raw(
     gfci.setMaxDiscriminatingPathLength(max_disc_path_length);
     gfci.setFaithfulnessAssumed(faithfulness_assumed);
     if (max_degree > 0) gfci.setMaxDegree(max_degree);
+    if (!knowledge.isEmpty()) gfci.setKnowledge(knowledge);
 
     Graph g = gfci.search();
 
@@ -164,6 +171,28 @@ static SearchResult run_gfci_raw(
 
 NB_MODULE(_tetrad_cpp, m) {
     m.doc() = "C++ tetrad-port bindings: PC, FGES, and GFCI algorithms for causal discovery";
+
+    nb::class_<Knowledge>(m, "Knowledge")
+        .def(nb::init<>())
+        .def("set_forbidden", &Knowledge::setForbidden, nb::arg("from_var"), nb::arg("to_var"),
+             "Forbid a directed edge from from_var to to_var.")
+        .def("remove_forbidden", &Knowledge::removeForbidden, nb::arg("from_var"), nb::arg("to_var"))
+        .def("is_forbidden", &Knowledge::isForbidden, nb::arg("from_var"), nb::arg("to_var"))
+        .def("set_required", &Knowledge::setRequired, nb::arg("from_var"), nb::arg("to_var"),
+             "Require a directed edge from from_var to to_var.")
+        .def("remove_required", &Knowledge::removeRequired, nb::arg("from_var"), nb::arg("to_var"))
+        .def("is_required", &Knowledge::isRequired, nb::arg("from_var"), nb::arg("to_var"))
+        .def("add_to_tier", &Knowledge::addToTier, nb::arg("tier"), nb::arg("var"),
+             "Add a variable to a temporal tier. Edges from higher tiers to lower tiers are forbidden.")
+        .def("set_tier", &Knowledge::setTier, nb::arg("tier"), nb::arg("vars"),
+             "Set all variables in a tier at once.")
+        .def("get_tier", &Knowledge::getTier, nb::arg("tier"))
+        .def("get_num_tiers", &Knowledge::getNumTiers)
+        .def("set_tier_forbidden_within", &Knowledge::setTierForbiddenWithin,
+             nb::arg("tier"), nb::arg("forbidden"),
+             "If true, forbid edges between variables within the same tier.")
+        .def("is_empty", &Knowledge::isEmpty)
+        .def("clear", &Knowledge::clear);
 
     nb::enum_<Endpoint>(m, "Endpoint")
         .value("TAIL", Endpoint::TAIL)
@@ -192,13 +221,15 @@ NB_MODULE(_tetrad_cpp, m) {
         nb::arg("alpha") = 0.05,
         nb::arg("depth") = -1,
         nb::arg("verbose") = false,
+        nb::arg("knowledge") = Knowledge(),
         "Run the PC algorithm on data.\n\n"
         "Args:\n"
         "    data: numpy array (n_samples x n_variables)\n"
         "    col_names: list of variable names\n"
         "    alpha: significance level for independence tests\n"
         "    depth: maximum conditioning set size (-1 for unlimited)\n"
-        "    verbose: print progress to stdout\n\n"
+        "    verbose: print progress to stdout\n"
+        "    knowledge: background knowledge (Knowledge object)\n\n"
         "Returns:\n"
         "    PcResult with edges (list of strings) and nodes (list of names)"
     );
@@ -210,6 +241,7 @@ NB_MODULE(_tetrad_cpp, m) {
         nb::arg("faithfulness_assumed") = true,
         nb::arg("max_degree") = -1,
         nb::arg("verbose") = false,
+        nb::arg("knowledge") = Knowledge(),
         "Run the FGES (Fast Greedy Equivalence Search) algorithm on data.\n\n"
         "FGES is a score-based algorithm that searches over CPDAGs using\n"
         "a greedy forward-backward strategy with BIC scoring.\n\n"
@@ -219,7 +251,8 @@ NB_MODULE(_tetrad_cpp, m) {
         "    penalty_discount: BIC penalty multiplier (1.0 = standard BIC)\n"
         "    faithfulness_assumed: assume faithfulness (faster, default True)\n"
         "    max_degree: maximum node degree (-1 for unlimited)\n"
-        "    verbose: print progress to stdout\n\n"
+        "    verbose: print progress to stdout\n"
+        "    knowledge: background knowledge (Knowledge object)\n\n"
         "Returns:\n"
         "    SearchResult with edges, nodes, and model_score"
     );
@@ -235,6 +268,7 @@ NB_MODULE(_tetrad_cpp, m) {
         nb::arg("max_disc_path_length") = -1,
         nb::arg("faithfulness_assumed") = true,
         nb::arg("verbose") = false,
+        nb::arg("knowledge") = Knowledge(),
         "Run the GFCI (Greedy FCI) algorithm on data.\n\n"
         "GFCI is a hybrid algorithm that combines score-based search (FGES)\n"
         "with FCI orientation rules to handle latent (unmeasured) confounders.\n"
@@ -250,7 +284,8 @@ NB_MODULE(_tetrad_cpp, m) {
         "    complete_rule_set: use Zhang's complete rules R1-R10 (default True)\n"
         "    max_disc_path_length: max discriminating path length (-1 unlimited)\n"
         "    faithfulness_assumed: assume faithfulness for FGES (default True)\n"
-        "    verbose: print progress to stdout\n\n"
+        "    verbose: print progress to stdout\n"
+        "    knowledge: background knowledge (Knowledge object)\n\n"
         "Returns:\n"
         "    SearchResult with edges (PAG edge strings) and nodes"
     );

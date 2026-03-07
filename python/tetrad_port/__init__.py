@@ -16,10 +16,13 @@ from typing import Any, Optional
 import numpy as np
 import pandas as pd
 
-from tetrad_port._tetrad_cpp import run_pc_raw, run_fges_raw, run_gfci_raw, PcResult, SearchResult
+from tetrad_port._tetrad_cpp import (
+    run_pc_raw, run_fges_raw, run_gfci_raw,
+    PcResult, SearchResult, Knowledge,
+)
 
 __version__ = "0.1.0"
-__all__ = ["TetradPort"]
+__all__ = ["TetradPort", "Knowledge"]
 
 
 class TetradPort:
@@ -51,7 +54,7 @@ class TetradPort:
         df: pd.DataFrame,
         alpha: float = 0.05,
         depth: int = -1,
-        knowledge: Optional[dict] = None,
+        knowledge: Optional[Knowledge] = None,
         verbose: Optional[bool] = None,
     ) -> tuple[dict[str, Any], dict[str, Any]]:
         """
@@ -69,8 +72,8 @@ class TetradPort:
             Significance level for conditional independence tests.
         depth : int
             Maximum size of conditioning sets. -1 for no limit.
-        knowledge : dict or None
-            Background knowledge (reserved for future use).
+        knowledge : Knowledge or None
+            Background knowledge (temporal tiers, forbidden/required edges).
         verbose : bool or None
             Override instance-level verbose setting.
 
@@ -85,21 +88,14 @@ class TetradPort:
                   'directed_edges' (list of (from, to) tuples),
                   'undirected_edges' (list of (n1, n2) tuples)
         """
-        if knowledge is not None:
-            import warnings
-            warnings.warn(
-                "Background knowledge is not yet supported in C++ engine. "
-                "The knowledge argument is ignored.",
-                UserWarning,
-                stacklevel=2,
-            )
-
         v = verbose if verbose is not None else self.verbose
         data, col_names = self._validate_and_extract(df)
+        k = knowledge if knowledge is not None else Knowledge()
 
         pc_result: PcResult = run_pc_raw(
             data=data, col_names=col_names,
             alpha=alpha, depth=depth, verbose=v,
+            knowledge=k,
         )
 
         results = {
@@ -124,6 +120,7 @@ class TetradPort:
         penalty_discount: float = 1.0,
         faithfulness_assumed: bool = True,
         max_degree: int = -1,
+        knowledge: Optional[Knowledge] = None,
         verbose: Optional[bool] = None,
     ) -> tuple[dict[str, Any], dict[str, Any]]:
         """
@@ -146,6 +143,8 @@ class TetradPort:
             If True, skips the unfaithfulness phase (faster). Default True.
         max_degree : int
             Maximum node degree in the output graph. -1 for unlimited.
+        knowledge : Knowledge or None
+            Background knowledge (temporal tiers, forbidden/required edges).
         verbose : bool or None
             Override instance-level verbose setting.
 
@@ -159,12 +158,14 @@ class TetradPort:
         """
         v = verbose if verbose is not None else self.verbose
         data, col_names = self._validate_and_extract(df)
+        k = knowledge if knowledge is not None else Knowledge()
 
         fges_result: SearchResult = run_fges_raw(
             data=data, col_names=col_names,
             penalty_discount=penalty_discount,
             faithfulness_assumed=faithfulness_assumed,
             max_degree=max_degree, verbose=v,
+            knowledge=k,
         )
 
         results = {
@@ -193,6 +194,7 @@ class TetradPort:
         complete_rule_set: bool = True,
         max_disc_path_length: int = -1,
         faithfulness_assumed: bool = True,
+        knowledge: Optional[Knowledge] = None,
         verbose: Optional[bool] = None,
     ) -> tuple[dict[str, Any], dict[str, Any]]:
         """
@@ -227,6 +229,8 @@ class TetradPort:
             Maximum discriminating path length for R4. -1 for unlimited.
         faithfulness_assumed : bool
             Faithfulness assumption for the FGES phase.
+        knowledge : Knowledge or None
+            Background knowledge (temporal tiers, forbidden/required edges).
         verbose : bool or None
             Override instance-level verbose setting.
 
@@ -242,6 +246,7 @@ class TetradPort:
         """
         v = verbose if verbose is not None else self.verbose
         data, col_names = self._validate_and_extract(df)
+        k = knowledge if knowledge is not None else Knowledge()
 
         gfci_result: SearchResult = run_gfci_raw(
             data=data, col_names=col_names,
@@ -250,7 +255,7 @@ class TetradPort:
             complete_rule_set=complete_rule_set,
             max_disc_path_length=max_disc_path_length,
             faithfulness_assumed=faithfulness_assumed,
-            verbose=v,
+            verbose=v, knowledge=k,
         )
 
         results = {

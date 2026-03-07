@@ -10,7 +10,7 @@ pip install -e ".[dev]"
 
 ```python
 import pandas as pd
-from tetrad_port import TetradPort
+from tetrad_port import TetradPort, Knowledge
 
 tp = TetradPort()
 
@@ -25,6 +25,14 @@ results, graph_info = tp.run_fges(df, penalty_discount=1.0)
 
 # Run GFCI (hybrid, handles latent confounders)
 results, graph_info = tp.run_gfci(df, alpha=0.05)
+
+# Use background knowledge to constrain search
+k = Knowledge()
+k.add_to_tier(0, "Age")       # Age cannot be caused by later variables
+k.add_to_tier(1, "BMI")
+k.set_forbidden("BMI", "Age") # Explicitly forbid BMI -> Age
+k.set_required("Smoking", "BP") # Require Smoking -> BP
+results, graph_info = tp.run_pc(df, alpha=0.05, knowledge=k)
 ```
 
 ## Algorithm Comparison
@@ -62,13 +70,14 @@ Run the PC algorithm. Returns a CPDAG (Completed Partially Directed Acyclic Grap
 - `df` (pd.DataFrame): Continuous numeric data (rows = samples, columns = variables).
 - `alpha` (float): Significance level for Fisher Z independence tests. Lower = sparser graph.
 - `depth` (int): Max conditioning set size. -1 for unlimited.
+- `knowledge` (Knowledge | None): Background knowledge constraints.
 - `verbose` (bool | None): Override instance verbosity.
 
 **Returns:** `(results, graph_info)` tuple.
 
 ---
 
-### `TetradPort.run_fges(df, penalty_discount=1.0, faithfulness_assumed=True, max_degree=-1, verbose=None)`
+### `TetradPort.run_fges(df, penalty_discount=1.0, faithfulness_assumed=True, max_degree=-1, knowledge=None, verbose=None)`
 
 Run FGES (Fast Greedy Equivalence Search). Returns a CPDAG.
 
@@ -77,12 +86,13 @@ Run FGES (Fast Greedy Equivalence Search). Returns a CPDAG.
 - `penalty_discount` (float): BIC penalty multiplier. 1.0 = standard BIC. Higher = sparser.
 - `faithfulness_assumed` (bool): Skip unfaithfulness phase (faster).
 - `max_degree` (int): Maximum node degree. -1 for unlimited.
+- `knowledge` (Knowledge | None): Background knowledge constraints.
 
 **Returns:** `(results, graph_info)` tuple. `results` includes `model_score`.
 
 ---
 
-### `TetradPort.run_gfci(df, alpha=0.05, penalty_discount=1.0, depth=-1, max_degree=-1, complete_rule_set=True, max_disc_path_length=-1, faithfulness_assumed=True, verbose=None)`
+### `TetradPort.run_gfci(df, alpha=0.05, penalty_discount=1.0, depth=-1, max_degree=-1, complete_rule_set=True, max_disc_path_length=-1, faithfulness_assumed=True, knowledge=None, verbose=None)`
 
 Run GFCI (Greedy FCI). Returns a PAG (Partial Ancestral Graph).
 
@@ -95,6 +105,7 @@ Run GFCI (Greedy FCI). Returns a PAG (Partial Ancestral Graph).
 - `complete_rule_set` (bool): Use Zhang's R1-R10 rules (True) or Spirtes' R1-R4 (False).
 - `max_disc_path_length` (int): Max discriminating path length for R4.
 - `faithfulness_assumed` (bool): For the FGES phase.
+- `knowledge` (Knowledge | None): Background knowledge constraints.
 
 **Returns:** `(results, graph_info)` tuple.
 
@@ -137,6 +148,69 @@ All `run_*` methods return `(results, graph_info)`.
 | `X o-> Y` | Partially oriented (circle at X) | PAG |
 | `X o-o Y` | Fully ambiguous | PAG |
 
+## Background Knowledge
+
+The `Knowledge` class lets you encode domain expertise to constrain causal search. All three algorithms (`run_pc`, `run_fges`, `run_gfci`) accept a `knowledge` parameter.
+
+### `Knowledge()`
+
+Create an empty knowledge object, then add constraints:
+
+```python
+from tetrad_port import Knowledge
+
+k = Knowledge()
+```
+
+### Temporal Tiers
+
+Variables in lower tiers cannot be caused by variables in higher tiers. This encodes temporal ordering.
+
+```python
+k.add_to_tier(0, "Age")        # Tier 0 (earliest)
+k.add_to_tier(0, "Genetics")
+k.add_to_tier(1, "Smoking")    # Tier 1
+k.add_to_tier(1, "Exercise")
+k.add_to_tier(2, "BMI")        # Tier 2 (latest)
+
+# Set an entire tier at once
+k.set_tier(0, ["Age", "Genetics"])
+
+# Forbid edges between variables within the same tier
+k.set_tier_forbidden_within(0, True)
+```
+
+### Forbidden Edges
+
+Explicitly forbid a directed edge, even within the same tier:
+
+```python
+k.set_forbidden("Exercise", "Cholesterol")  # Forbid Exercise -> Cholesterol
+k.remove_forbidden("Exercise", "Cholesterol")  # Remove the constraint
+k.is_forbidden("Exercise", "Cholesterol")  # Check if forbidden
+```
+
+### Required Edges
+
+Force a directed edge to appear in the output:
+
+```python
+k.set_required("Smoking", "BloodPressure")  # Require Smoking -> BP
+k.remove_required("Smoking", "BloodPressure")
+k.is_required("Smoking", "BloodPressure")
+```
+
+### Other Methods
+
+| Method | Description |
+|--------|-------------|
+| `k.get_tier(i)` | Get list of variables in tier `i` |
+| `k.get_num_tiers()` | Number of tiers defined |
+| `k.is_empty()` | True if no constraints set |
+| `k.clear()` | Remove all constraints |
+
+---
+
 ## Utility Methods
 
 ### `TetradPort.edges_to_lavaan(edges)`
@@ -172,4 +246,5 @@ Create temporal ordering knowledge dict for lagged data.
 ## Examples
 
 See the [examples/python/](../examples/python/) directory for:
-- `causal_discovery_tutorial.ipynb` — Complete tutorial with all three algorithms
+- `causal_discovery_tutorial.ipynb` — Tutorial comparing PC, FGES, and GFCI
+- `knowledge_tutorial.ipynb` — Using background knowledge (tiers, forbidden/required edges)

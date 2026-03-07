@@ -13,7 +13,7 @@ cmake-build-*/
 .venv/
 
 # tetrad source
-tetrad-7.6.8/
+tetrad-7.6.8
 
 # OS
 .DS_Store
