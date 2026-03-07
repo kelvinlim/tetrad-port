@@ -6,8 +6,12 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
-# Warnings
-add_compile_options(-Wall -Wextra -Wpedantic)
+# Warnings (platform-specific)
+if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang|AppleClang")
+    add_compile_options(-Wall -Wextra -Wpedantic)
+elseif(MSVC)
+    add_compile_options(/W4 /EHsc)
+endif()
 
 # Dependencies via FetchContent
 include(FetchContent)
@@ -48,6 +52,7 @@ add_library(tetrad_cpp STATIC
     src/search/fci_orient.cpp
     src/search/gfci.cpp
     src/util/choice_generator.cpp
+    src/util/log_stream.cpp
 )
 
 target_include_directories(tetrad_cpp PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/src)
