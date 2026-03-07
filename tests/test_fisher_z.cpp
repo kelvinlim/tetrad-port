@@ -42,7 +42,7 @@ TEST_CASE("FisherZ on perfectly correlated data", "[fisher_z]") {
 TEST_CASE("FisherZ conditional independence", "[fisher_z]") {
     // X → Z ← Y where X and Y are independent
     // Z = X + Y + noise
-    int n = 500;
+    int n = 2000;
     Eigen::MatrixXd data(n, 3);
     std::mt19937 rng(123);
     std::normal_distribution<double> dist(0.0, 1.0);
