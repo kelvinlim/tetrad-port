@@ -1,6 +1,6 @@
 #include "search/pc.h"
+#include "util/log_stream.h"
 #include <algorithm>
-#include <iostream>
 
 namespace tetrad {
 
@@ -22,7 +22,7 @@ Graph Pc::search(const std::vector<NodePtr>& nodes) {
     SepsetMap sepsets = fas_->getSepsets();
 
     if (verbose_) {
-        std::cout << "FAS complete. Skeleton has " << g.getNumEdges() << " edges." << std::endl;
+        logStream() << "FAS complete. Skeleton has " << g.getNumEdges() << " edges." << std::endl;
     }
 
     // Phase 2a: Orient background knowledge edges
@@ -32,14 +32,14 @@ Graph Pc::search(const std::vector<NodePtr>& nodes) {
     orientUnshieldedTriples(g, sepsets);
 
     if (verbose_) {
-        std::cout << "Collider orientation complete." << std::endl;
+        logStream() << "Collider orientation complete." << std::endl;
     }
 
     // Phase 3: Meek rules to closure
     applyMeekRules(g);
 
     if (verbose_) {
-        std::cout << "Meek rules complete." << std::endl;
+        logStream() << "Meek rules complete." << std::endl;
     }
 
     return g;
@@ -108,7 +108,7 @@ void Pc::pcOrientbk(Graph& g, const std::vector<NodePtr>& nodes) {
         g.addDirectedEdge(to, from);
 
         if (verbose_) {
-            std::cout << "Knowledge: " << to->getName() << " --> " << from->getName()
+            logStream() << "Knowledge: " << to->getName() << " --> " << from->getName()
                       << " (forbidden " << ke.from << " --> " << ke.to << ")" << std::endl;
         }
     }
@@ -126,7 +126,7 @@ void Pc::pcOrientbk(Graph& g, const std::vector<NodePtr>& nodes) {
         g.addDirectedEdge(from, to);
 
         if (verbose_) {
-            std::cout << "Knowledge: " << from->getName() << " --> " << to->getName()
+            logStream() << "Knowledge: " << from->getName() << " --> " << to->getName()
                       << " (required)" << std::endl;
         }
     }
@@ -157,7 +157,7 @@ void Pc::orientUnshieldedTriples(Graph& g, const SepsetMap& sepsets) {
             if (colliderAllowed(t.x, t.z, t.y) && canOrientCollider(g, t.x, t.z, t.y)) {
                 orientCollider(g, t.x, t.z, t.y);
                 if (verbose_) {
-                    std::cout << "Collider: " << t.x->getName() << " -> "
+                    logStream() << "Collider: " << t.x->getName() << " -> "
                               << t.z->getName() << " <- " << t.y->getName() << std::endl;
                 }
             }

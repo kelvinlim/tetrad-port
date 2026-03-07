@@ -1,7 +1,7 @@
 #include "search/fas.h"
 #include "util/choice_generator.h"
+#include "util/log_stream.h"
 #include <algorithm>
-#include <iostream>
 
 namespace tetrad {
 
@@ -30,7 +30,7 @@ Graph Fas::search(const std::vector<NodePtr>& nodes) {
 
     for (int d = 0; d <= depthCap; d++) {
         if (verbose_) {
-            std::cout << "FAS depth: " << d << std::endl;
+            logStream() << "FAS depth: " << d << std::endl;
         }
 
         // For stable mode, freeze adjacencies

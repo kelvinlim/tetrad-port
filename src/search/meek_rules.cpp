@@ -1,6 +1,6 @@
 #include "search/meek_rules.h"
+#include "util/log_stream.h"
 #include <algorithm>
-#include <iostream>
 
 namespace tetrad {
 
@@ -47,7 +47,7 @@ bool MeekRules::meekR1(const NodePtr& b, const NodePtr& c, Graph& graph, std::se
         if (graph.isAdjacentTo(c, a)) continue;
         if (direct(b, c, graph, visited)) {
             if (verbose_) {
-                std::cout << "Meek R1: " << a->getName() << " --> "
+                logStream() << "Meek R1: " << a->getName() << " --> "
                           << b->getName() << " --- " << c->getName() << std::endl;
             }
             return true;
@@ -64,7 +64,7 @@ bool MeekRules::meekR2(const NodePtr& a, const NodePtr& c, Graph& graph, std::se
         if (isDirected(graph, a, b) && isDirected(graph, b, c)) {
             if (direct(a, c, graph, visited)) {
                 if (verbose_) {
-                    std::cout << "Meek R2: " << a->getName() << " --> "
+                    logStream() << "Meek R2: " << a->getName() << " --> "
                               << b->getName() << " --> " << c->getName() << std::endl;
                 }
                 return true;
@@ -73,7 +73,7 @@ bool MeekRules::meekR2(const NodePtr& a, const NodePtr& c, Graph& graph, std::se
         if (isDirected(graph, c, b) && isDirected(graph, b, a)) {
             if (direct(c, a, graph, visited)) {
                 if (verbose_) {
-                    std::cout << "Meek R2: " << c->getName() << " --> "
+                    logStream() << "Meek R2: " << c->getName() << " --> "
                               << b->getName() << " --> " << a->getName() << std::endl;
                 }
                 return true;
@@ -104,7 +104,7 @@ bool MeekRules::meekR3(const NodePtr& d, const NodePtr& a, Graph& graph, std::se
                 isDirected(graph, c, a)) {
                 if (direct(d, a, graph, visited)) {
                     if (verbose_) {
-                        std::cout << "Meek R3: " << d->getName() << " --> "
+                        logStream() << "Meek R3: " << d->getName() << " --> "
                                   << a->getName() << std::endl;
                     }
                     return true;
@@ -141,7 +141,7 @@ bool MeekRules::meekR4(const NodePtr& a, const NodePtr& b, Graph& graph, std::se
 
             if (direct(a, b, graph, visited)) {
                 if (verbose_) {
-                    std::cout << "Meek R4: " << a->getName() << " --> "
+                    logStream() << "Meek R4: " << a->getName() << " --> "
                               << b->getName() << " using " << c->getName()
                               << ", " << d->getName() << std::endl;
                 }

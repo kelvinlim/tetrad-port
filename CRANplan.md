@@ -797,6 +797,273 @@ children_of_X <- result$edges %>%
   pull(to)
 ```
 
+#### Knowledge Tutorial (R equivalent of `examples/python/knowledge_tutorial.ipynb`)
+
+```r
+# ===================================================================
+# Background Knowledge in Causal Discovery — R Tutorial
+# ===================================================================
+#
+# Causal discovery algorithms learn graph structure from data alone,
+# but they often leave some edges undirected or miss orientations.
+# Background knowledge lets you encode domain expertise to constrain
+# the search and resolve ambiguities.
+#
+# rtetrad supports three types of knowledge:
+#   1. Temporal tiers — earlier tiers cannot be caused by later tiers
+#   2. Forbidden edges — explicitly forbid specific directed edges
+#   3. Required edges — explicitly require specific directed edges
+#
+# This tutorial uses an 8-variable clinical dataset to show how each
+# type of knowledge progressively improves the discovered graph.
+# ===================================================================
+
+library(rtetrad)
+
+# ------------------------------------------------------------------
+# The Clinical Dataset
+# ------------------------------------------------------------------
+# True causal structure:
+#
+#   Tier 0 (background):  Age, Genetics
+#   Tier 1 (lifestyle):   Exercise <- Age;  Diet;  Smoking
+#   Tier 2 (biomarkers):  BMI <- Age, Exercise, Diet
+#                          Cholesterol <- Genetics, Diet, Smoking
+#                          BP <- Genetics, BMI, Smoking
+#   Tier 3 (outcome):     HeartRisk <- Cholesterol, BP
+
+set.seed(42)
+n <- 5000
+
+# Tier 0: Background factors
+Age      <- rnorm(n)
+Genetics <- rnorm(n)
+
+# Tier 1: Lifestyle factors
+Exercise <- 0.4 * Age + 0.7 * rnorm(n)
+Diet     <- rnorm(n)
+Smoking  <- rnorm(n)
+
+# Tier 2: Biomarkers
+BMI         <- 0.3 * Age + 0.4 * Exercise + 0.3 * Diet + 0.5 * rnorm(n)
+Cholesterol <- 0.5 * Genetics + 0.4 * Diet + 0.3 * Smoking + 0.5 * rnorm(n)
+BP          <- 0.4 * Genetics + 0.3 * BMI + 0.4 * Smoking + 0.5 * rnorm(n)
+
+# Tier 3: Outcome
+HeartRisk <- 0.5 * Cholesterol + 0.5 * BP + 0.4 * rnorm(n)
+
+df <- data.frame(
+  Age = Age, Genetics = Genetics, Exercise = Exercise,
+  Diet = Diet, Smoking = Smoking, BMI = BMI,
+  Cholesterol = Cholesterol, BP = BP, HeartRisk = HeartRisk
+)
+
+cat(sprintf("Data: %d samples, %d variables\n", nrow(df), ncol(df)))
+
+# ------------------------------------------------------------------
+# 1. Baseline — No Knowledge
+# ------------------------------------------------------------------
+# The algorithm discovers the skeleton but may leave edges undirected
+# because data alone cannot always distinguish causal direction.
+
+result_none <- run_pc(df, alpha = 0.01)
+
+cat(sprintf("\nBaseline: %d edges\n", result_none$num_edges))
+directed   <- sum(result_none$edges$edge_type == "-->")
+undirected <- sum(result_none$edges$edge_type == "---")
+cat(sprintf("  directed: %d, undirected: %d\n", directed, undirected))
+
+# Show edges, flagging undirected ones
+for (i in seq_len(nrow(result_none$edges))) {
+  e <- result_none$edges[i, ]
+  flag <- if (e$edge_type == "---") "  <<<" else ""
+  cat(sprintf("  %s %s %s%s\n", e$from, e$edge_type, e$to, flag))
+}
+
+# ------------------------------------------------------------------
+# 2. Temporal Tiers
+# ------------------------------------------------------------------
+# Temporal ordering: background -> lifestyle -> biomarkers -> outcome.
+# Tiers forbid edges from later tiers to earlier tiers (e.g., BMI
+# cannot cause Age, HeartRisk cannot cause Exercise).
+
+k_tiers <- tetrad_knowledge()
+k_tiers <- set_tier(k_tiers, 0L, c("Age", "Genetics"))
+k_tiers <- set_tier(k_tiers, 1L, c("Exercise", "Diet", "Smoking"))
+k_tiers <- set_tier(k_tiers, 2L, c("BMI", "Cholesterol", "BP"))
+k_tiers <- set_tier(k_tiers, 3L, c("HeartRisk"))
+
+result_tiers <- run_pc(df, alpha = 0.01, knowledge = k_tiers)
+
+cat(sprintf("\nWith tiers: %d edges\n", result_tiers$num_edges))
+for (i in seq_len(nrow(result_tiers$edges))) {
+  e <- result_tiers$edges[i, ]
+  cat(sprintf("  %s %s %s\n", e$from, e$edge_type, e$to))
+}
+
+# What changed?
+edges_none  <- paste(result_none$edges$from, result_none$edges$edge_type, result_none$edges$to)
+edges_tiers <- paste(result_tiers$edges$from, result_tiers$edges$edge_type, result_tiers$edges$to)
+
+only_baseline <- setdiff(edges_none, edges_tiers)
+only_tiers    <- setdiff(edges_tiers, edges_none)
+
+if (length(only_baseline) > 0 || length(only_tiers) > 0) {
+  cat("\nEdges in baseline but NOT with tiers:\n")
+  for (e in sort(only_baseline)) cat(sprintf("  - %s\n", e))
+  cat("\nEdges with tiers but NOT in baseline:\n")
+  for (e in sort(only_tiers)) cat(sprintf("  + %s\n", e))
+}
+
+# ------------------------------------------------------------------
+# 3. Forbidden Edges
+# ------------------------------------------------------------------
+# Within the same tier, forbid implausible direct paths:
+#   - Exercise -> Cholesterol (indirect via BMI, not direct)
+#   - Smoking -> BMI (smoking doesn't directly cause weight changes)
+
+k_forbid <- tetrad_knowledge()
+k_forbid <- set_tier(k_forbid, 0L, c("Age", "Genetics"))
+k_forbid <- set_tier(k_forbid, 1L, c("Exercise", "Diet", "Smoking"))
+k_forbid <- set_tier(k_forbid, 2L, c("BMI", "Cholesterol", "BP"))
+k_forbid <- set_tier(k_forbid, 3L, c("HeartRisk"))
+k_forbid <- add_forbidden(k_forbid, "Exercise", "Cholesterol")
+k_forbid <- add_forbidden(k_forbid, "Smoking", "BMI")
+
+result_forbid <- run_pc(df, alpha = 0.01, knowledge = k_forbid)
+
+cat(sprintf("\nWith tiers + forbidden: %d edges\n", result_forbid$num_edges))
+for (i in seq_len(nrow(result_forbid$edges))) {
+  e <- result_forbid$edges[i, ]
+  cat(sprintf("  %s %s %s\n", e$from, e$edge_type, e$to))
+}
+
+# Verify forbidden edges are absent
+has_ex_chol <- any(result_forbid$edges$from == "Exercise" &
+                   result_forbid$edges$to == "Cholesterol" &
+                   result_forbid$edges$edge_type == "-->")
+has_sm_bmi  <- any(result_forbid$edges$from == "Smoking" &
+                   result_forbid$edges$to == "BMI" &
+                   result_forbid$edges$edge_type == "-->")
+cat(sprintf("\nExercise -> Cholesterol present? %s\n", has_ex_chol))
+cat(sprintf("Smoking -> BMI present? %s\n", has_sm_bmi))
+
+# ------------------------------------------------------------------
+# 4. Required Edges
+# ------------------------------------------------------------------
+# Force well-established causal links into the result:
+#   - Smoking -> BP (smoking raises blood pressure)
+#   - Diet -> Cholesterol (dietary fat affects cholesterol)
+
+k_full <- tetrad_knowledge()
+k_full <- set_tier(k_full, 0L, c("Age", "Genetics"))
+k_full <- set_tier(k_full, 1L, c("Exercise", "Diet", "Smoking"))
+k_full <- set_tier(k_full, 2L, c("BMI", "Cholesterol", "BP"))
+k_full <- set_tier(k_full, 3L, c("HeartRisk"))
+k_full <- add_forbidden(k_full, "Exercise", "Cholesterol")
+k_full <- add_forbidden(k_full, "Smoking", "BMI")
+k_full <- add_required(k_full, "Smoking", "BP")
+k_full <- add_required(k_full, "Diet", "Cholesterol")
+
+result_full <- run_pc(df, alpha = 0.01, knowledge = k_full)
+
+cat(sprintf("\nFull knowledge: %d edges\n", result_full$num_edges))
+for (i in seq_len(nrow(result_full$edges))) {
+  e <- result_full$edges[i, ]
+  cat(sprintf("  %s %s %s\n", e$from, e$edge_type, e$to))
+}
+
+# Verify required edges
+has_sm_bp   <- any(result_full$edges$from == "Smoking" &
+                   result_full$edges$to == "BP" &
+                   result_full$edges$edge_type == "-->")
+has_di_chol <- any(result_full$edges$from == "Diet" &
+                   result_full$edges$to == "Cholesterol" &
+                   result_full$edges$edge_type == "-->")
+cat(sprintf("\nSmoking -> BP present? %s\n", has_sm_bp))
+cat(sprintf("Diet -> Cholesterol present? %s\n", has_di_chol))
+
+# ------------------------------------------------------------------
+# 5. Summary — Progressive Refinement
+# ------------------------------------------------------------------
+
+configs <- list(
+  list(name = "No knowledge",       r = result_none),
+  list(name = "+ Temporal tiers",    r = result_tiers),
+  list(name = "+ Forbidden edges",   r = result_forbid),
+  list(name = "+ Required edges",    r = result_full)
+)
+
+cat("\n")
+for (cfg in configs) {
+  r <- cfg$r
+  dir   <- sum(r$edges$edge_type == "-->")
+  undir <- sum(r$edges$edge_type == "---")
+  cat(sprintf("%-25s  edges=%2d  directed=%2d  undirected=%2d\n",
+              cfg$name, r$num_edges, dir, undir))
+}
+
+# ------------------------------------------------------------------
+# Compare final result against the true causal graph
+# ------------------------------------------------------------------
+true_edges <- data.frame(
+  from = c("Age", "Age", "Exercise", "Diet", "Diet", "Genetics",
+           "Genetics", "Smoking", "Smoking", "BMI", "Cholesterol", "BP"),
+  to   = c("Exercise", "BMI", "BMI", "BMI", "Cholesterol", "Cholesterol",
+           "BP", "Cholesterol", "BP", "BP", "HeartRisk", "HeartRisk")
+)
+
+directed <- result_full$edges[result_full$edges$edge_type == "-->",
+                              c("from", "to")]
+
+correct <- merge(true_edges, directed)
+missed  <- true_edges[!paste(true_edges$from, true_edges$to) %in%
+                       paste(directed$from, directed$to), ]
+extra   <- directed[!paste(directed$from, directed$to) %in%
+                     paste(true_edges$from, true_edges$to), ]
+
+cat(sprintf("\nTrue edges: %d\n", nrow(true_edges)))
+cat(sprintf("Correctly discovered: %d / %d\n", nrow(correct), nrow(true_edges)))
+
+if (nrow(missed) > 0) {
+  cat("\nMissed:\n")
+  for (i in seq_len(nrow(missed)))
+    cat(sprintf("  %s --> %s\n", missed$from[i], missed$to[i]))
+}
+if (nrow(extra) > 0) {
+  cat("\nExtra (false positives):\n")
+  for (i in seq_len(nrow(extra)))
+    cat(sprintf("  %s --> %s\n", extra$from[i], extra$to[i]))
+}
+if (nrow(missed) == 0 && nrow(extra) == 0) {
+  cat("Perfect recovery!\n")
+}
+
+# ------------------------------------------------------------------
+# Bonus: Forbid Edges Within a Tier
+# ------------------------------------------------------------------
+# Variables in the same tier may be known to be independent.
+# set_tier_forbidden_within() forbids all directed edges between
+# variables in the same tier.
+
+k_within <- tetrad_knowledge()
+k_within <- set_tier(k_within, 0L, c("Age", "Genetics"))
+k_within <- set_tier(k_within, 1L, c("Exercise", "Diet", "Smoking"))
+k_within <- set_tier(k_within, 2L, c("BMI", "Cholesterol", "BP"))
+k_within <- set_tier(k_within, 3L, c("HeartRisk"))
+k_within <- set_tier_forbidden_within(k_within, 0L)  # no Age <-> Genetics
+k_within <- set_tier_forbidden_within(k_within, 1L)  # no Exercise/Diet/Smoking edges
+
+result_within <- run_pc(df, alpha = 0.01, knowledge = k_within)
+
+cat(sprintf("\nWith within-tier forbidden: %d edges\n", result_within$num_edges))
+for (i in seq_len(nrow(result_within$edges))) {
+  e <- result_within$edges[i, ]
+  cat(sprintf("  %s %s %s\n", e$from, e$edge_type, e$to))
+}
+cat("\nNote: No edges between Age-Genetics or Exercise-Diet-Smoking\n")
+```
+
 ### Vignette Outline
 
 `vignettes/introduction.Rmd` — "Getting Started with rtetrad"
