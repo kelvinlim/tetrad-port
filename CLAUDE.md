@@ -4,7 +4,13 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-C++ port of CMU's Tetrad causal inference library, currently implementing the PC algorithm with Fisher Z independence testing. Provides Python bindings via nanobind.
+C++ port of CMU's Tetrad causal inference library. Currently implements the PC algorithm with Fisher Z independence testing, with Python bindings via nanobind. The project is expanding to include score-based and latent-variable algorithms: GFCI, BOSS, BOSS-FCI, GRASP, GRASP-FCI.
+
+## Reference Version
+
+**Tetrad 7.6.8** (`tetrad-7.6.8/`) is the reference Java source for all porting work. This version was chosen because it contains critical FciOrient correctness fixes (R3/R4/R5/R8/R9/R10 reviewed by Spirtes) required by all FCI-variant algorithms. See `TetradVersionRecommendation.md` for full rationale.
+
+The existing PC/FAS/MeekRules port was originally based on 7.6.3. Differences are documented in `TetradVersionRecommendation.md` and are minor (PC itself did not change between versions).
 
 ## Build & Test Commands
 
@@ -41,10 +47,10 @@ All code lives in `namespace tetrad`. Nodes use `std::shared_ptr<Node>` (`NodePt
 
 - **`src/data/`** — DataSet wraps `Eigen::MatrixXd` and computes correlation matrices. Knowledge is stubbed (always permissive).
 
-- **`src/search/`** — The PC algorithm pipeline:
-  1. **FAS** (Fast Adjacency Search): skeleton discovery via iterative conditional independence testing at increasing depths. PC-Stable variant defers edge removals per depth.
-  2. **Collider orientation**: unshielded triples X—Z—Y where Z ∉ sepset(X,Y) become X→Z←Y.
-  3. **Meek Rules** (R1-R3): iterative orientation propagation with cycle prevention.
+- **`src/search/`** — Search algorithms and independence testing:
+  - **PC pipeline** (implemented): FAS → collider orientation → Meek Rules (R1-R3)
+  - **Score interface** (planned): abstract `Score` class for BIC-based scoring
+  - **FCI orientation** (planned): `FciOrient` for latent-variable algorithms
   - `IndependenceTest` is the abstract interface; `IndTestFisherZ` implements Fisher Z via Cholesky decomposition on correlation submatrices.
 
 - **`src/util/`** — ChoiceGenerator for lexicographic C(n,k) enumeration.
@@ -78,4 +84,40 @@ Python: numpy, pandas (required); semopy (optional, SEM fitting); dgraph-flex (o
 
 ## Reference Material
 
-This is a port from Java Tetrad. Key source mappings: `Node.java` → `node.h/cpp`, `Edge.java` → `edge.h/cpp`, `EdgeListGraph.java` → `graph.h/cpp`, `IndTestFisherZ.java` → `ind_test_fisher_z.h/cpp`, `Pc.java` → `pc.h/cpp`, `Fas.java` → `fas.h/cpp`, `MeekRules.java` → `meek_rules.h/cpp`. See `IMPLEMENTATION_PLAN.md` for detailed specifications.
+This is a port from Java Tetrad 7.6.8. Key source mappings for implemented code:
+
+| C++ | Java (in `tetrad-7.6.8/tetrad-lib/src/main/java/edu/cmu/tetrad/`) |
+|-----|-------------------------------------------------------------------|
+| `node.h/cpp` | `graph/GraphNode.java`, `graph/Node.java` |
+| `edge.h/cpp` | `graph/Edge.java` |
+| `graph.h/cpp` | `graph/EdgeListGraph.java` |
+| `ind_test_fisher_z.h/cpp` | `search/test/IndTestFisherZ.java` |
+| `pc.h/cpp` | `search/Pc.java`, `search/utils/PcCommon.java` |
+| `fas.h/cpp` | `search/Fas.java` |
+| `meek_rules.h/cpp` | `search/utils/MeekRules.java` |
+
+## Known Differences from Java (Current PC Port)
+
+These are documented deviations from the Java 7.6.8 reference. All are benign when Knowledge is empty (our current usage):
+
+- **MeekRules R2/R3**: C++ continues iterating after first orientation; Java returns immediately. May produce different orientation order in edge cases.
+- **Collider orientation**: C++ lacks ConflictRule system (always overwrites). Java default is PRIORITIZE_EXISTING.
+- **MeekRules R4**: Not implemented (only active when Knowledge is non-empty).
+- **FAS**: Missing `noEdgeRequired()` and `isRequired` checks in `possibleParentOf` (only matter with Knowledge).
+- **Missing `pcOrientbk()`**: Background knowledge orientation step not implemented.
+
+See `TetradVersionRecommendation.md` for full details.
+
+## Target Algorithm Roadmap
+
+Priority order for next algorithms to port (all from `tetrad-7.6.8/`):
+
+1. **GFCI** — `search/GFci.java` (278 lines). Requires: Fges, FciOrient, Score, SepsetsGreedy.
+2. **BOSS** — `search/Boss.java` (505 lines). Requires: PermutationSearch, BesPermutation, GrowShrinkTree, Score.
+3. **BOSS-FCI** — `search/BFci.java` (241 lines). Requires: Boss, FciOrient, SepsetsGreedy.
+4. **GRASP** — `search/Grasp.java` (532 lines). Requires: TeyssierScorer, Score.
+5. **GRASP-FCI** — `search/GraspFci.java` (300 lines). Requires: Grasp, FciOrient, SepsetsGreedy.
+
+Shared infrastructure needed: Score interface, SemBicScore, FciOrient, FAS (already ported), MeekRules (already ported), Fges, TeyssierScorer, GrowShrinkTree, BesPermutation, SepsetsGreedy, DagToPag, PossibleMsepFci.
+
+See `IMPLEMENTATION_PLAN.md` for the original PC vertical slice plan.
