@@ -1,9 +1,12 @@
 """
-tetrad_port: Python bindings for the tetrad-port C++ PC algorithm.
+tetrad_port: Python bindings for causal discovery algorithms from CMU's Tetrad.
 
-Provides a TetradPort facade class following the FastCDA pattern:
+Provides PC, FGES, and GFCI algorithms with a simple facade API:
+
     tp = TetradPort()
     results, graph_info = tp.run_pc(df, alpha=0.05)
+    results, graph_info = tp.run_fges(df, penalty_discount=1.0)
+    results, graph_info = tp.run_gfci(df, alpha=0.05)
 """
 
 from __future__ import annotations
@@ -13,7 +16,7 @@ from typing import Any, Optional
 import numpy as np
 import pandas as pd
 
-from tetrad_port._tetrad_cpp import run_pc_raw, PcResult
+from tetrad_port._tetrad_cpp import run_pc_raw, run_fges_raw, run_gfci_raw, PcResult, SearchResult
 
 __version__ = "0.1.0"
 __all__ = ["TetradPort"]
@@ -23,15 +26,17 @@ class TetradPort:
     """
     Facade class for running causal discovery via the tetrad-port C++ engine.
 
-    Follows the FastCDA pattern: a single object that provides
-    run_pc(), edges_to_lavaan(), run_semopy(), and data-prep helpers.
+    Supported algorithms:
+    - **PC**: Constraint-based, returns a CPDAG. Good when you have no latent confounders.
+    - **FGES**: Score-based (BIC), returns a CPDAG. Faster than PC for large graphs.
+    - **GFCI**: Hybrid (score + constraint), returns a PAG. Handles latent confounders.
 
     Example
     -------
     >>> tp = TetradPort()
     >>> results, graph_info = tp.run_pc(df, alpha=0.05)
-    >>> print(results['edges'])
-    ['X --> Y', 'Y --> Z']
+    >>> results, graph_info = tp.run_fges(df)
+    >>> results, graph_info = tp.run_gfci(df, alpha=0.05)
     """
 
     def __init__(self, verbose: bool = False):
@@ -52,6 +57,10 @@ class TetradPort:
         """
         Run the PC algorithm on a pandas DataFrame.
 
+        PC is a constraint-based algorithm that uses conditional independence
+        tests (Fisher Z) to discover causal structure. It assumes no latent
+        confounders (causal sufficiency). Returns a CPDAG.
+
         Parameters
         ----------
         df : pd.DataFrame
@@ -67,7 +76,7 @@ class TetradPort:
 
         Returns
         -------
-        results_dict : dict
+        results : dict
             Keys: 'edges' (list of str), 'nodes' (list of str),
                   'num_edges' (int), 'num_nodes' (int),
                   'alpha' (float), 'depth' (int)
@@ -86,29 +95,14 @@ class TetradPort:
             )
 
         v = verbose if verbose is not None else self.verbose
-
-        if not isinstance(df, pd.DataFrame):
-            raise TypeError(f"Expected pd.DataFrame, got {type(df).__name__}")
-
-        numeric_df = df.select_dtypes(include=[np.number])
-        if numeric_df.shape[1] != df.shape[1]:
-            non_numeric = set(df.columns) - set(numeric_df.columns)
-            raise ValueError(
-                f"All columns must be numeric. Non-numeric columns: {non_numeric}"
-            )
-
-        data = df.values.astype(np.float64, copy=False)
-        col_names = list(df.columns.astype(str))
+        data, col_names = self._validate_and_extract(df)
 
         pc_result: PcResult = run_pc_raw(
-            data=data,
-            col_names=col_names,
-            alpha=alpha,
-            depth=depth,
-            verbose=v,
+            data=data, col_names=col_names,
+            alpha=alpha, depth=depth, verbose=v,
         )
 
-        results_dict = {
+        results = {
             "edges": list(pc_result.edges),
             "nodes": list(pc_result.nodes),
             "num_edges": pc_result.num_edges,
@@ -118,8 +112,158 @@ class TetradPort:
         }
 
         graph_info = self._parse_edges_to_graph_info(pc_result.edges, pc_result.nodes)
+        return results, graph_info
 
-        return results_dict, graph_info
+    # ----------------------------------------------------------------
+    # Core: run_fges
+    # ----------------------------------------------------------------
+
+    def run_fges(
+        self,
+        df: pd.DataFrame,
+        penalty_discount: float = 1.0,
+        faithfulness_assumed: bool = True,
+        max_degree: int = -1,
+        verbose: Optional[bool] = None,
+    ) -> tuple[dict[str, Any], dict[str, Any]]:
+        """
+        Run the FGES (Fast Greedy Equivalence Search) algorithm.
+
+        FGES is a score-based algorithm that searches over Markov equivalence
+        classes using a greedy forward-backward strategy with BIC scoring.
+        It assumes causal sufficiency (no latent confounders). Returns a CPDAG.
+
+        Faster than PC for large, sparse graphs.
+
+        Parameters
+        ----------
+        df : pd.DataFrame
+            Continuous data. All columns must be numeric.
+        penalty_discount : float
+            BIC penalty multiplier. 1.0 = standard BIC. Higher values
+            produce sparser graphs.
+        faithfulness_assumed : bool
+            If True, skips the unfaithfulness phase (faster). Default True.
+        max_degree : int
+            Maximum node degree in the output graph. -1 for unlimited.
+        verbose : bool or None
+            Override instance-level verbose setting.
+
+        Returns
+        -------
+        results : dict
+            Keys: 'edges', 'nodes', 'num_edges', 'num_nodes',
+                  'model_score', 'penalty_discount'
+        graph_info : dict
+            Keys: 'adjacency', 'directed_edges', 'undirected_edges'
+        """
+        v = verbose if verbose is not None else self.verbose
+        data, col_names = self._validate_and_extract(df)
+
+        fges_result: SearchResult = run_fges_raw(
+            data=data, col_names=col_names,
+            penalty_discount=penalty_discount,
+            faithfulness_assumed=faithfulness_assumed,
+            max_degree=max_degree, verbose=v,
+        )
+
+        results = {
+            "edges": list(fges_result.edges),
+            "nodes": list(fges_result.nodes),
+            "num_edges": fges_result.num_edges,
+            "num_nodes": fges_result.num_nodes,
+            "model_score": fges_result.model_score,
+            "penalty_discount": penalty_discount,
+        }
+
+        graph_info = self._parse_edges_to_graph_info(fges_result.edges, fges_result.nodes)
+        return results, graph_info
+
+    # ----------------------------------------------------------------
+    # Core: run_gfci
+    # ----------------------------------------------------------------
+
+    def run_gfci(
+        self,
+        df: pd.DataFrame,
+        alpha: float = 0.05,
+        penalty_discount: float = 1.0,
+        depth: int = -1,
+        max_degree: int = -1,
+        complete_rule_set: bool = True,
+        max_disc_path_length: int = -1,
+        faithfulness_assumed: bool = True,
+        verbose: Optional[bool] = None,
+    ) -> tuple[dict[str, Any], dict[str, Any]]:
+        """
+        Run the GFCI (Greedy FCI) algorithm.
+
+        GFCI is a hybrid algorithm that combines score-based search (FGES)
+        with FCI orientation rules to handle latent (unmeasured) confounders.
+        Returns a PAG (Partial Ancestral Graph) which can represent:
+
+        - ``-->`` : definite directed edge (causal)
+        - ``---`` : undirected edge
+        - ``<->`` : bidirected edge (latent common cause)
+        - ``o->`` : partially oriented (circle endpoint)
+        - ``o-o`` : fully ambiguous orientation
+
+        Parameters
+        ----------
+        df : pd.DataFrame
+            Continuous data. All columns must be numeric.
+        alpha : float
+            Significance level for conditional independence tests.
+        penalty_discount : float
+            BIC penalty multiplier for the FGES phase.
+        depth : int
+            Maximum conditioning set size. -1 for unlimited.
+        max_degree : int
+            Maximum node degree. -1 for unlimited.
+        complete_rule_set : bool
+            If True, use Zhang's complete rules R1-R10 (arrow and tail
+            complete). If False, use only Spirtes' R1-R4.
+        max_disc_path_length : int
+            Maximum discriminating path length for R4. -1 for unlimited.
+        faithfulness_assumed : bool
+            Faithfulness assumption for the FGES phase.
+        verbose : bool or None
+            Override instance-level verbose setting.
+
+        Returns
+        -------
+        results : dict
+            Keys: 'edges', 'nodes', 'num_edges', 'num_nodes',
+                  'alpha', 'penalty_discount'
+        graph_info : dict
+            Keys: 'adjacency', 'directed_edges', 'undirected_edges',
+                  'bidirected_edges', 'partially_oriented_edges',
+                  'circle_edges'
+        """
+        v = verbose if verbose is not None else self.verbose
+        data, col_names = self._validate_and_extract(df)
+
+        gfci_result: SearchResult = run_gfci_raw(
+            data=data, col_names=col_names,
+            alpha=alpha, penalty_discount=penalty_discount,
+            depth=depth, max_degree=max_degree,
+            complete_rule_set=complete_rule_set,
+            max_disc_path_length=max_disc_path_length,
+            faithfulness_assumed=faithfulness_assumed,
+            verbose=v,
+        )
+
+        results = {
+            "edges": list(gfci_result.edges),
+            "nodes": list(gfci_result.nodes),
+            "num_edges": gfci_result.num_edges,
+            "num_nodes": gfci_result.num_nodes,
+            "alpha": alpha,
+            "penalty_discount": penalty_discount,
+        }
+
+        graph_info = self._parse_edges_to_graph_info(gfci_result.edges, gfci_result.nodes)
+        return results, graph_info
 
     # ----------------------------------------------------------------
     # SEM fitting (matching FastCDA pattern)
@@ -327,6 +471,23 @@ class TetradPort:
     # ----------------------------------------------------------------
 
     @staticmethod
+    def _validate_and_extract(df: pd.DataFrame) -> tuple[np.ndarray, list[str]]:
+        """Validate DataFrame and extract numpy array + column names."""
+        if not isinstance(df, pd.DataFrame):
+            raise TypeError(f"Expected pd.DataFrame, got {type(df).__name__}")
+
+        numeric_df = df.select_dtypes(include=[np.number])
+        if numeric_df.shape[1] != df.shape[1]:
+            non_numeric = set(df.columns) - set(numeric_df.columns)
+            raise ValueError(
+                f"All columns must be numeric. Non-numeric columns: {non_numeric}"
+            )
+
+        data = df.values.astype(np.float64, copy=False)
+        col_names = list(df.columns.astype(str))
+        return data, col_names
+
+    @staticmethod
     def _parse_edges_to_graph_info(
         edges: list[str], nodes: list[str]
     ) -> dict[str, Any]:
@@ -334,6 +495,9 @@ class TetradPort:
         adjacency: dict[str, list[str]] = {n: [] for n in nodes}
         directed_edges: list[tuple[str, str]] = []
         undirected_edges: list[tuple[str, str]] = []
+        bidirected_edges: list[tuple[str, str]] = []
+        partially_oriented_edges: list[tuple[str, str, str]] = []
+        circle_edges: list[tuple[str, str]] = []
 
         for edge_str in edges:
             parts = edge_str.strip().split()
@@ -353,9 +517,18 @@ class TetradPort:
                 directed_edges.append((node2, node1))
             elif edge_type == "---":
                 undirected_edges.append((node1, node2))
+            elif edge_type == "<->":
+                bidirected_edges.append((node1, node2))
+            elif edge_type == "o->":
+                partially_oriented_edges.append((node1, edge_type, node2))
+            elif edge_type == "o-o":
+                circle_edges.append((node1, node2))
 
         return {
             "adjacency": adjacency,
             "directed_edges": directed_edges,
             "undirected_edges": undirected_edges,
+            "bidirected_edges": bidirected_edges,
+            "partially_oriented_edges": partially_oriented_edges,
+            "circle_edges": circle_edges,
         }

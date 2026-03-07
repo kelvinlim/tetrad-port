@@ -7,6 +7,9 @@
 #include "data/data_set.h"
 #include "search/ind_test_fisher_z.h"
 #include "search/pc.h"
+#include "search/fges.h"
+#include "search/sem_bic_score.h"
+#include "search/gfci.h"
 #include "graph/graph.h"
 #include "graph/edge.h"
 #include "graph/node.h"
@@ -15,9 +18,37 @@
 namespace nb = nanobind;
 using namespace tetrad;
 
-// Simple result struct returned by the high-level run_pc_raw function.
+// Result struct for algorithms returning graph structures.
 // Uses only strings/ints so there are no shared_ptr lifetime issues
 // across the C++/Python boundary.
+struct SearchResult {
+    std::vector<std::string> edges;
+    std::vector<std::string> nodes;
+    int num_edges;
+    int num_nodes;
+    double model_score;  // For score-based algorithms; NaN otherwise
+};
+
+static SearchResult graph_to_result(Graph& g, double model_score = std::numeric_limits<double>::quiet_NaN()) {
+    SearchResult result;
+    result.num_edges = g.getNumEdges();
+    result.num_nodes = g.getNumNodes();
+    result.model_score = model_score;
+
+    for (const auto& node : g.getNodes()) {
+        result.nodes.push_back(node->getName());
+    }
+
+    auto edges = g.getEdges();
+    std::sort(edges.begin(), edges.end());
+    for (const auto& edge : edges) {
+        result.edges.push_back(edge.toString());
+    }
+
+    return result;
+}
+
+// Legacy result type for backwards compatibility
 struct PcResult {
     std::vector<std::string> edges;
     std::vector<std::string> nodes;
@@ -65,8 +96,74 @@ static PcResult run_pc_raw(
     return result;
 }
 
+static SearchResult run_fges_raw(
+    const Eigen::MatrixXd& data,
+    const std::vector<std::string>& col_names,
+    double penalty_discount,
+    bool faithfulness_assumed,
+    int max_degree,
+    bool verbose
+) {
+    if (static_cast<int>(col_names.size()) != data.cols()) {
+        throw std::invalid_argument(
+            "Number of column names (" + std::to_string(col_names.size()) +
+            ") must match number of columns (" + std::to_string(data.cols()) + ")"
+        );
+    }
+
+    DataSet ds(data, col_names);
+    SemBicScore score(ds);
+    score.setPenaltyDiscount(penalty_discount);
+
+    Fges fges(score);
+    fges.setFaithfulnessAssumed(faithfulness_assumed);
+    fges.setVerbose(verbose);
+    if (max_degree > 0) fges.setMaxDegree(max_degree);
+
+    Graph g = fges.search();
+
+    return graph_to_result(g, fges.getModelScore());
+}
+
+static SearchResult run_gfci_raw(
+    const Eigen::MatrixXd& data,
+    const std::vector<std::string>& col_names,
+    double alpha,
+    double penalty_discount,
+    int depth,
+    int max_degree,
+    bool complete_rule_set,
+    int max_disc_path_length,
+    bool faithfulness_assumed,
+    bool verbose
+) {
+    if (static_cast<int>(col_names.size()) != data.cols()) {
+        throw std::invalid_argument(
+            "Number of column names (" + std::to_string(col_names.size()) +
+            ") must match number of columns (" + std::to_string(data.cols()) + ")"
+        );
+    }
+
+    DataSet ds(data, col_names);
+    SemBicScore score(ds);
+    score.setPenaltyDiscount(penalty_discount);
+    IndTestFisherZ test(ds, alpha);
+
+    Gfci gfci(test, score);
+    gfci.setDepth(depth);
+    gfci.setVerbose(verbose);
+    gfci.setCompleteRuleSetUsed(complete_rule_set);
+    gfci.setMaxDiscriminatingPathLength(max_disc_path_length);
+    gfci.setFaithfulnessAssumed(faithfulness_assumed);
+    if (max_degree > 0) gfci.setMaxDegree(max_degree);
+
+    Graph g = gfci.search();
+
+    return graph_to_result(g);
+}
+
 NB_MODULE(_tetrad_cpp, m) {
-    m.doc() = "C++ tetrad-port bindings: PC algorithm with Fisher Z test";
+    m.doc() = "C++ tetrad-port bindings: PC, FGES, and GFCI algorithms for causal discovery";
 
     nb::enum_<Endpoint>(m, "Endpoint")
         .value("TAIL", Endpoint::TAIL)
@@ -74,11 +171,20 @@ NB_MODULE(_tetrad_cpp, m) {
         .value("CIRCLE", Endpoint::CIRCLE)
         .value("NULL_EP", Endpoint::NULL_EP);
 
+    // Legacy PcResult for backwards compatibility
     nb::class_<PcResult>(m, "PcResult")
         .def_ro("edges", &PcResult::edges)
         .def_ro("nodes", &PcResult::nodes)
         .def_ro("num_edges", &PcResult::num_edges)
         .def_ro("num_nodes", &PcResult::num_nodes);
+
+    // New unified SearchResult
+    nb::class_<SearchResult>(m, "SearchResult")
+        .def_ro("edges", &SearchResult::edges)
+        .def_ro("nodes", &SearchResult::nodes)
+        .def_ro("num_edges", &SearchResult::num_edges)
+        .def_ro("num_nodes", &SearchResult::num_nodes)
+        .def_ro("model_score", &SearchResult::model_score);
 
     m.def("run_pc_raw", &run_pc_raw,
         nb::arg("data"),
@@ -95,6 +201,58 @@ NB_MODULE(_tetrad_cpp, m) {
         "    verbose: print progress to stdout\n\n"
         "Returns:\n"
         "    PcResult with edges (list of strings) and nodes (list of names)"
+    );
+
+    m.def("run_fges_raw", &run_fges_raw,
+        nb::arg("data"),
+        nb::arg("col_names"),
+        nb::arg("penalty_discount") = 1.0,
+        nb::arg("faithfulness_assumed") = true,
+        nb::arg("max_degree") = -1,
+        nb::arg("verbose") = false,
+        "Run the FGES (Fast Greedy Equivalence Search) algorithm on data.\n\n"
+        "FGES is a score-based algorithm that searches over CPDAGs using\n"
+        "a greedy forward-backward strategy with BIC scoring.\n\n"
+        "Args:\n"
+        "    data: numpy array (n_samples x n_variables)\n"
+        "    col_names: list of variable names\n"
+        "    penalty_discount: BIC penalty multiplier (1.0 = standard BIC)\n"
+        "    faithfulness_assumed: assume faithfulness (faster, default True)\n"
+        "    max_degree: maximum node degree (-1 for unlimited)\n"
+        "    verbose: print progress to stdout\n\n"
+        "Returns:\n"
+        "    SearchResult with edges, nodes, and model_score"
+    );
+
+    m.def("run_gfci_raw", &run_gfci_raw,
+        nb::arg("data"),
+        nb::arg("col_names"),
+        nb::arg("alpha") = 0.05,
+        nb::arg("penalty_discount") = 1.0,
+        nb::arg("depth") = -1,
+        nb::arg("max_degree") = -1,
+        nb::arg("complete_rule_set") = true,
+        nb::arg("max_disc_path_length") = -1,
+        nb::arg("faithfulness_assumed") = true,
+        nb::arg("verbose") = false,
+        "Run the GFCI (Greedy FCI) algorithm on data.\n\n"
+        "GFCI is a hybrid algorithm that combines score-based search (FGES)\n"
+        "with FCI orientation rules to handle latent (unmeasured) confounders.\n"
+        "It returns a PAG (Partial Ancestral Graph) with four edge types:\n"
+        "  --> directed, --- undirected, <-> bidirected, o-> partially oriented\n\n"
+        "Args:\n"
+        "    data: numpy array (n_samples x n_variables)\n"
+        "    col_names: list of variable names\n"
+        "    alpha: significance level for independence tests\n"
+        "    penalty_discount: BIC penalty multiplier (1.0 = standard BIC)\n"
+        "    depth: maximum conditioning set size (-1 for unlimited)\n"
+        "    max_degree: maximum node degree (-1 for unlimited)\n"
+        "    complete_rule_set: use Zhang's complete rules R1-R10 (default True)\n"
+        "    max_disc_path_length: max discriminating path length (-1 unlimited)\n"
+        "    faithfulness_assumed: assume faithfulness for FGES (default True)\n"
+        "    verbose: print progress to stdout\n\n"
+        "Returns:\n"
+        "    SearchResult with edges (PAG edge strings) and nodes"
     );
 
     nb::class_<Node>(m, "Node")
