@@ -16,6 +16,13 @@ public:
         const NodePtr& x, const NodePtr& y,
         const std::set<NodePtr>& z) = 0;
 
+    // Convenience: check independence with a vector conditioning set.
+    bool isIndependent(const NodePtr& x, const NodePtr& y,
+                       const std::vector<NodePtr>& z) {
+        std::set<NodePtr> zSet(z.begin(), z.end());
+        return checkIndependence(x, y, zSet).isIndependent();
+    }
+
     virtual const std::vector<NodePtr>& getVariables() const = 0;
     virtual int getSampleSize() const = 0;
 

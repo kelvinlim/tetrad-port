@@ -63,6 +63,10 @@ public:
     int getOutdegree(const NodePtr& node) const;
     int getDegree(const NodePtr& node) const;
 
+    // Returns nodes adjacent to 'node' where the edge endpoint at 'node' equals 'endpoint'.
+    // E.g., getNodesInTo(X, ARROW) returns all Y such that Y *-> X.
+    std::vector<NodePtr> getNodesInTo(const NodePtr& node, Endpoint endpoint) const;
+
     // Collider detection
     bool isDefCollider(const NodePtr& n1, const NodePtr& n2, const NodePtr& n3) const;
     bool isDefNoncollider(const NodePtr& n1, const NodePtr& n2, const NodePtr& n3) const;

@@ -285,6 +285,19 @@ int Graph::getDegree(const NodePtr& node) const {
     return static_cast<int>(getAdjacentNodes(node).size());
 }
 
+std::vector<NodePtr> Graph::getNodesInTo(const NodePtr& node, Endpoint endpoint) const {
+    std::vector<NodePtr> result;
+    if (!node) return result;
+    auto edges = getEdges(node);
+    for (const auto& edge : edges) {
+        if (edge.getEndpoint(node) == endpoint) {
+            auto distal = edge.getDistalNode(node);
+            if (distal) result.push_back(distal);
+        }
+    }
+    return result;
+}
+
 // Collider detection
 
 bool Graph::isDefCollider(const NodePtr& n1, const NodePtr& n2, const NodePtr& n3) const {

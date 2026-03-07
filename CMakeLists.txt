@@ -43,6 +43,10 @@ add_library(tetrad_cpp STATIC
     src/search/fas.cpp
     src/search/meek_rules.cpp
     src/search/pc.cpp
+    src/search/sem_bic_score.cpp
+    src/search/fges.cpp
+    src/search/fci_orient.cpp
+    src/search/gfci.cpp
     src/util/choice_generator.cpp
 )
 
@@ -89,6 +93,9 @@ if(NOT SKBUILD)
         tests/test_meek_rules.cpp
         tests/test_pc.cpp
         tests/test_knowledge.cpp
+        tests/test_sem_bic_score.cpp
+        tests/test_fges.cpp
+        tests/test_gfci.cpp
     )
     target_link_libraries(tetrad_tests PRIVATE tetrad_cpp Catch2::Catch2WithMain)
     add_test(NAME tetrad_tests COMMAND tetrad_tests)
