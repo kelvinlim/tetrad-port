@@ -57,7 +57,6 @@ bool MeekRules::meekR1(const NodePtr& b, const NodePtr& c, Graph& graph, std::se
 // R2: if a→b→c, a--c, then a→c
 bool MeekRules::meekR2(const NodePtr& a, const NodePtr& c, Graph& graph, std::set<NodePtr>& visited) {
     auto common = getCommonAdjacents(a, c, graph);
-    bool oriented = false;
 
     for (const auto& b : common) {
         if (isDirected(graph, a, b) && isDirected(graph, b, c)) {
@@ -66,7 +65,7 @@ bool MeekRules::meekR2(const NodePtr& a, const NodePtr& c, Graph& graph, std::se
                     std::cout << "Meek R2: " << a->getName() << " --> "
                               << b->getName() << " --> " << c->getName() << std::endl;
                 }
-                oriented = true;
+                return true;
             }
         }
         if (isDirected(graph, c, b) && isDirected(graph, b, a)) {
@@ -75,11 +74,11 @@ bool MeekRules::meekR2(const NodePtr& a, const NodePtr& c, Graph& graph, std::se
                     std::cout << "Meek R2: " << c->getName() << " --> "
                               << b->getName() << " --> " << a->getName() << std::endl;
                 }
-                oriented = true;
+                return true;
             }
         }
     }
-    return oriented;
+    return false;
 }
 
 // R3: if d--a, d--b, d--c, b→a, c→a, b not adj c, then d→a
@@ -88,7 +87,6 @@ bool MeekRules::meekR3(const NodePtr& d, const NodePtr& a, Graph& graph, std::se
 
     if (common.size() < 2) return false;
 
-    bool oriented = false;
     for (size_t i = 0; i < common.size(); i++) {
         for (size_t j = i + 1; j < common.size(); j++) {
             auto b = common[i];
@@ -107,12 +105,12 @@ bool MeekRules::meekR3(const NodePtr& d, const NodePtr& a, Graph& graph, std::se
                         std::cout << "Meek R3: " << d->getName() << " --> "
                                   << a->getName() << std::endl;
                     }
-                    oriented = true;
+                    return true;
                 }
             }
         }
     }
-    return oriented;
+    return false;
 }
 
 bool MeekRules::direct(const NodePtr& a, const NodePtr& c, Graph& graph, std::set<NodePtr>& visited) {

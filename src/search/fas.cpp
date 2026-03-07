@@ -145,7 +145,9 @@ std::vector<NodePtr> Fas::possibleParents(const NodePtr& x,
         if (*z == *x) continue;
         if (*z == *y) continue;
         // z is a possible parent if it's not forbidden to be a parent of x
-        if (!knowledge.isForbidden(z->getName(), x->getName())) {
+        // and x is not required to be a parent of z
+        if (!knowledge.isForbidden(z->getName(), x->getName()) &&
+            !knowledge.isRequired(x->getName(), z->getName())) {
             result.push_back(z);
         }
     }

@@ -118,12 +118,10 @@ bool Pc::canOrientCollider(const Graph& g, const NodePtr& x,
                             const NodePtr& z, const NodePtr& y) const {
     if (!g.isAdjacentTo(x, z) || !g.isAdjacentTo(z, y)) return false;
 
-    // Prevent directed cycles
-    if (g.existsDirectedPath(z, x)) return false;
-    if (g.existsDirectedPath(z, y)) return false;
-
-    // Prevent bidirected edges
-    if (g.isParentOf(z, x) || g.isParentOf(z, y)) return false;
+    // PRIORITIZE_EXISTING: skip if already oriented as collider x→z←y
+    if (g.getEndpoint(x, z) == Endpoint::ARROW && g.getEndpoint(y, z) == Endpoint::ARROW) {
+        return false;
+    }
 
     return true;
 }

@@ -98,15 +98,16 @@ This is a port from Java Tetrad 7.6.8. Key source mappings for implemented code:
 
 ## Known Differences from Java (Current PC Port)
 
-These are documented deviations from the Java 7.6.8 reference. All are benign when Knowledge is empty (our current usage):
+Remaining deviations from Java 7.6.8 (benign when Knowledge is empty):
 
-- **MeekRules R2/R3**: C++ continues iterating after first orientation; Java returns immediately. May produce different orientation order in edge cases.
-- **Collider orientation**: C++ lacks ConflictRule system (always overwrites). Java default is PRIORITIZE_EXISTING.
 - **MeekRules R4**: Not implemented (only active when Knowledge is non-empty).
-- **FAS**: Missing `noEdgeRequired()` and `isRequired` checks in `possibleParentOf` (only matter with Knowledge).
 - **Missing `pcOrientbk()`**: Background knowledge orientation step not implemented.
 
-See `TetradVersionRecommendation.md` for full details.
+Previously fixed (Phase 1):
+- MeekRules R2/R3 early-return semantics now match Java
+- Collider orientation uses PRIORITIZE_EXISTING ConflictRule
+- FAS `possibleParents` includes `noEdgeRequired()` and `isRequired` checks
+- Knowledge stub has `noEdgeRequired()` method
 
 ## Target Algorithm Roadmap
 
