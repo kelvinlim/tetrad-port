@@ -21,6 +21,7 @@ private:
     bool meekR1(const NodePtr& b, const NodePtr& c, Graph& graph, std::set<NodePtr>& visited);
     bool meekR2(const NodePtr& a, const NodePtr& c, Graph& graph, std::set<NodePtr>& visited);
     bool meekR3(const NodePtr& d, const NodePtr& a, Graph& graph, std::set<NodePtr>& visited);
+    bool meekR4(const NodePtr& a, const NodePtr& b, Graph& graph, std::set<NodePtr>& visited);
 
     bool direct(const NodePtr& a, const NodePtr& c, Graph& graph, std::set<NodePtr>& visited);
 

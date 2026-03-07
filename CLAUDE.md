@@ -45,7 +45,7 @@ All code lives in `namespace tetrad`. Nodes use `std::shared_ptr<Node>` (`NodePt
 
 - **`src/graph/`** — Graph data structures (Node, Edge, Triple, EdgeListGraph). Edges have two endpoints (TAIL, ARROW, CIRCLE, NULL_EP) enabling representation of directed, undirected, and partially oriented edges. Edge equality is symmetric: `(A→B) == (B←A)`.
 
-- **`src/data/`** — DataSet wraps `Eigen::MatrixXd` and computes correlation matrices. Knowledge is stubbed (always permissive).
+- **`src/data/`** — DataSet wraps `Eigen::MatrixXd` and computes correlation matrices. Knowledge supports forbidden/required edge constraints and temporal tiers.
 
 - **`src/search/`** — Search algorithms and independence testing:
   - **PC pipeline** (implemented): FAS → collider orientation → Meek Rules (R1-R3)
@@ -98,16 +98,10 @@ This is a port from Java Tetrad 7.6.8. Key source mappings for implemented code:
 
 ## Known Differences from Java (Current PC Port)
 
-Remaining deviations from Java 7.6.8 (benign when Knowledge is empty):
+All previously identified deviations from Java 7.6.8 have been resolved:
 
-- **MeekRules R4**: Not implemented (only active when Knowledge is non-empty).
-- **Missing `pcOrientbk()`**: Background knowledge orientation step not implemented.
-
-Previously fixed (Phase 1):
-- MeekRules R2/R3 early-return semantics now match Java
-- Collider orientation uses PRIORITIZE_EXISTING ConflictRule
-- FAS `possibleParents` includes `noEdgeRequired()` and `isRequired` checks
-- Knowledge stub has `noEdgeRequired()` method
+- Phase 1: MeekRules R2/R3 early-return, PRIORITIZE_EXISTING collider orientation, FAS `possibleParents` knowledge checks
+- Phase 2: Full Knowledge class, `pcOrientbk()`, MeekRules R4, `colliderAllowed()` knowledge check in collider orientation
 
 ## Target Algorithm Roadmap
 

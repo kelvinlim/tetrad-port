@@ -33,6 +33,8 @@ std::set<NodePtr> MeekRules::orientImplied(Graph& graph) {
             else if (meekR2(y, x, graph, visited)) { oriented = true; }
             else if (meekR3(x, y, graph, visited)) { oriented = true; }
             else if (meekR3(y, x, graph, visited)) { oriented = true; }
+            else if (meekR4(x, y, graph, visited)) { oriented = true; }
+            else if (meekR4(y, x, graph, visited)) { oriented = true; }
         }
     }
 
@@ -111,6 +113,44 @@ bool MeekRules::meekR3(const NodePtr& d, const NodePtr& a, Graph& graph, std::se
         }
     }
     return false;
+}
+
+// R4: if a--b, c→b, d→c, a--d, b not adj d, then a→b
+// Only active when knowledge is non-empty.
+bool MeekRules::meekR4(const NodePtr& a, const NodePtr& b, Graph& graph, std::set<NodePtr>& visited) {
+    if (knowledge_.isEmpty()) return false;
+
+    bool oriented = false;
+
+    for (const auto& c : graph.getParents(b)) {
+        auto adj = getCommonAdjacents(a, c, graph);
+
+        for (const auto& d : adj) {
+            if (*d == *b) continue;
+            if (graph.isAdjacentTo(b, d)) continue;
+
+            Edge dc = graph.getEdge(d, c);
+            if (dc.isNull()) continue;
+            // d→c: check pointsTowards c
+            if (!dc.pointsTowards(c)) continue;
+
+            Edge ad = graph.getEdge(a, d);
+            if (ad.isNull()) continue;
+            // a--d must be undirected
+            if (!isUndirectedEdge(ad)) continue;
+
+            if (direct(a, b, graph, visited)) {
+                if (verbose_) {
+                    std::cout << "Meek R4: " << a->getName() << " --> "
+                              << b->getName() << " using " << c->getName()
+                              << ", " << d->getName() << std::endl;
+                }
+                oriented = true;
+            }
+        }
+    }
+
+    return oriented;
 }
 
 bool MeekRules::direct(const NodePtr& a, const NodePtr& c, Graph& graph, std::set<NodePtr>& visited) {

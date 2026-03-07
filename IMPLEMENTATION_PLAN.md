@@ -128,15 +128,16 @@ Port the iterative combination generator exactly. This is critical for FAS perfo
 - Key operations: `set(x, y, z)`, `get(x, y)`, `getPValue(x, y)`
 - Pair keys should be order-independent (canonicalize by pointer comparison or name)
 
-### Step 8: Knowledge (Stub)
+### Step 8: Knowledge (Stub) ✅ DONE (stub only)
 **Java source**: `Knowledge.java`
 
-Minimal stub for the first pass:
-- `isForbidden(from, to)` -> always returns false
-- `isRequired(from, to)` -> always returns false
-- `isEmpty()` -> always returns true
-- This lets all PC code compile and run without knowledge constraints
-- Full implementation deferred
+Initial stub implemented — always permissive. Full implementation in Step 17.
+
+### Step 8b: COMPLETED — Phase 1 Java Conformance Fixes
+- MeekRules R2/R3 early-return semantics
+- Collider orientation PRIORITIZE_EXISTING ConflictRule
+- FAS `possibleParents` isRequired check
+- Knowledge `noEdgeRequired()` method
 
 ### Step 9: DataSet (Simple)
 - Thin wrapper around `Eigen::MatrixXd` + variable names
@@ -222,13 +223,105 @@ Write Catch2 tests for each component:
 - `examples/run_pc.cpp`: Load a CSV, run PC, print resulting edges
 - Can be used to generate output for conformance testing against Java
 
+## Step 17: Knowledge (Full Implementation) — HIGH PRIORITY
+**Java source**: `Knowledge.java` (1045 lines), `KnowledgeEdge.java` (170 lines)
+
+Replace the current stub with a full implementation. The Knowledge class is required by all target algorithms (PC, GFCI, BOSS, GRASP, and all FCI variants) and is a prerequisite for the remaining PC gaps (`pcOrientbk`, MeekRules R4).
+
+### Data Model
+
+Three constraint mechanisms, all operating on variable names (strings):
+
+1. **Explicit forbidden/required rules**: `setForbidden(from, to)` / `setRequired(from, to)`. Stored as `vector<pair<set<string>, set<string>>>` (ordered pairs of variable sets). An edge `from→to` is forbidden if any rule pair `(F, T)` has `from ∈ F` and `to ∈ T`.
+
+2. **Temporal tiers**: `addToTier(tier, var)`. Edges from higher-tier to lower-tier variables are automatically forbidden. `setTierForbiddenWithin(tier, bool)` forbids edges within a tier.
+
+3. **Variable tracking**: `addVariable(name)`, `getVariables()`. The set of known variable names.
+
+### Required API (used by search algorithms)
+
+**Core queries** (used everywhere):
+- `isForbidden(from, to)` — checks explicit rules AND tier rules
+- `isRequired(from, to)` — checks explicit required rules
+- `noEdgeRequired(x, y)` — `!(isRequired(x,y) || isRequired(y,x))`
+- `isEmpty()` — true when no rules and no tiers
+
+**Edge enumeration** (used by `pcOrientbk`):
+- `forbiddenEdgesIterator()` → returns list of `KnowledgeEdge(from, to)`
+- `requiredEdgesIterator()` → returns list of `KnowledgeEdge(from, to)`
+
+**Tier operations** (used by GRASP, FCI algorithms):
+- `addToTier(tier, var)` — assign variable to tier (removes from previous tier)
+- `setTier(tier, vars)` — set all variables in a tier
+- `getTier(tier)` → sorted list of variables in tier
+- `getNumTiers()` → number of tiers
+- `getVariablesNotInTiers()` → variables not assigned to any tier
+- `isForbiddenByTiers(from, to)` — tier-only check
+- `setTierForbiddenWithin(tier, bool)` — forbid intra-tier edges
+- `isTierForbiddenWithin(tier)` — query intra-tier forbidden status
+
+**Mutation**:
+- `setForbidden(from, to)` / `removeForbidden(from, to)`
+- `setRequired(from, to)` / `removeRequired(from, to)`
+- `addVariable(name)`
+- `clear()`
+
+### Simplifications (drop from Java)
+
+- **Wildcard matching** (`*` patterns): Defer. No search algorithm uses wildcards programmatically; they're a user-input convenience. Can add later.
+- **KnowledgeGroup**: Legacy mechanism, documented as "do not use". Drop entirely.
+- **Java serialization**: Not needed in C++.
+- **`MarshalledObject` deep copy**: Use standard C++ copy constructor/assignment.
+- **`defaultToKnowledgeLayout`**: GUI concern, drop.
+- **`isOnlyCanCauseNextTier`**: Rare advanced feature, defer.
+- **`isViolatedBy(Graph)`**: Convenience method, add only if needed.
+
+### Implementation Plan
+
+**Files**: `src/data/knowledge.h` (replace stub), `src/data/knowledge.cpp` (new)
+
+**KnowledgeEdge**: Simple `struct { string from; string to; }` — no separate file needed, define in `knowledge.h`.
+
+**Storage**:
+```cpp
+class Knowledge {
+    std::set<std::string> variables_;
+    // Each rule is (fromSet, toSet): edge from→to forbidden if from ∈ fromSet && to ∈ toSet
+    std::vector<std::pair<std::set<std::string>, std::set<std::string>>> forbiddenRules_;
+    std::vector<std::pair<std::set<std::string>, std::set<std::string>>> requiredRules_;
+    std::vector<std::set<std::string>> tierSpecs_;
+};
+```
+
+**Key logic**:
+- `isForbidden(from, to)` = `isForbiddenByRules(from, to) || isForbiddenByTiers(from, to)`
+- `isForbiddenByTiers(from, to)` = from is in a higher tier than to
+- `isForbiddenByRules(from, to)` = any rule pair where from ∈ first && to ∈ second
+
+### Tests (`tests/test_knowledge.cpp`)
+
+- Explicit forbidden: `setForbidden("X", "Y")` then `isForbidden("X", "Y")` is true, `isForbidden("Y", "X")` is false
+- Explicit required: `setRequired("X", "Y")` then `isRequired("X", "Y")` is true
+- Tier ordering: tier 0 = {A}, tier 1 = {B} → `isForbidden("B", "A")` is true (later→earlier forbidden)
+- Tier forbidden within: `setTierForbiddenWithin(0, true)` → `isForbidden("A1", "A2")` for same-tier vars
+- `noEdgeRequired()` correctness
+- `isEmpty()` before and after adding constraints
+- `clear()` resets all state
+- Edge iterators return correct forbidden/required edges
+- Integration: PC with Knowledge constraints produces correct orientations
+
+### Step 18: Complete PC Knowledge Integration
+
+With full Knowledge, close the remaining PC gaps:
+
+- **`pcOrientbk()`**: Before collider orientation, iterate forbidden edges and orient away; iterate required edges and orient toward. Port from `GraphSearchUtils.pcOrientbk()` (~50 lines).
+- **MeekRules R4**: Already gated on `!knowledge.isEmpty()` in Java. Port the R4 rule (~30 lines in MeekRules.java).
+
 ## Future Steps (Not in This Plan)
-- Python bindings via nanobind
 - R bindings via Rcpp/cpp11
 - Golden Master conformance testing against Java
-- Knowledge (full implementation)
 - CONSERVATIVE and MAX_P collider strategies
-- Additional algorithms (FCI, GES, etc.)
+- Additional algorithms (GFCI, BOSS, etc.) — see Target Algorithm Roadmap in CLAUDE.md
 - Shrinkage modes for FisherZ
 - Performance optimization
 
@@ -251,7 +344,7 @@ Write Catch2 tests for each component:
 | Graph | `tetrad/tetrad-lib/.../graph/EdgeListGraph.java` | 1640 |
 | ChoiceGenerator | `tetrad/tetrad-lib/.../util/ChoiceGenerator.java` | ~180 |
 | SepsetMap | `tetrad/tetrad-lib/.../search/utils/SepsetMap.java` | 251 |
-| Knowledge | `tetrad/tetrad-lib/.../data/Knowledge.java` | ~100 |
+| Knowledge | `tetrad/tetrad-lib/.../data/Knowledge.java` | 1045 |
 | IndTestFisherZ | `tetrad/tetrad-lib/.../search/test/IndTestFisherZ.java` | 866 |
 | FAS | `tetrad/tetrad-lib/.../search/Fas.java` | 554 |
 | MeekRules | `tetrad/tetrad-lib/.../search/utils/MeekRules.java` | 549 |

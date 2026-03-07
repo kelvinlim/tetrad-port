@@ -88,6 +88,7 @@ if(NOT SKBUILD)
         tests/test_fas.cpp
         tests/test_meek_rules.cpp
         tests/test_pc.cpp
+        tests/test_knowledge.cpp
     )
     target_link_libraries(tetrad_tests PRIVATE tetrad_cpp Catch2::Catch2WithMain)
     add_test(NAME tetrad_tests COMMAND tetrad_tests)

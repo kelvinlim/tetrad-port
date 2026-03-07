@@ -30,8 +30,10 @@ private:
     };
 
     std::vector<TripleInfo> collectUnshieldedTriples(const Graph& g) const;
+    void pcOrientbk(Graph& g, const std::vector<NodePtr>& nodes);
     void orientUnshieldedTriples(Graph& g, const SepsetMap& sepsets);
     void applyMeekRules(Graph& g);
+    bool colliderAllowed(const NodePtr& x, const NodePtr& z, const NodePtr& y) const;
     bool canOrientCollider(const Graph& g, const NodePtr& x,
                            const NodePtr& z, const NodePtr& y) const;
     static void orientCollider(Graph& g, const NodePtr& x,

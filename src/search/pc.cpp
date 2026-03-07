@@ -25,7 +25,10 @@ Graph Pc::search(const std::vector<NodePtr>& nodes) {
         std::cout << "FAS complete. Skeleton has " << g.getNumEdges() << " edges." << std::endl;
     }
 
-    // Phase 2: Orient colliders
+    // Phase 2a: Orient background knowledge edges
+    pcOrientbk(g, nodes);
+
+    // Phase 2b: Orient colliders
     orientUnshieldedTriples(g, sepsets);
 
     if (verbose_) {
@@ -81,6 +84,54 @@ std::vector<Pc::TripleInfo> Pc::collectUnshieldedTriples(const Graph& g) const {
     return triples;
 }
 
+void Pc::pcOrientbk(Graph& g, const std::vector<NodePtr>& nodes) {
+    if (knowledge_.isEmpty()) return;
+
+    // Helper to find node by name
+    auto findNode = [&](const std::string& name) -> NodePtr {
+        for (const auto& n : nodes) {
+            if (n->getName() == name) return n;
+        }
+        return nullptr;
+    };
+
+    // Orient forbidden edges: if from→to is forbidden, orient as to→from
+    for (const auto& ke : knowledge_.getListOfForbiddenEdges()) {
+        auto from = findNode(ke.from);
+        auto to = findNode(ke.to);
+        if (!from || !to) continue;
+
+        Edge e = g.getEdge(from, to);
+        if (e.isNull()) continue;
+
+        g.removeEdge(from, to);
+        g.addDirectedEdge(to, from);
+
+        if (verbose_) {
+            std::cout << "Knowledge: " << to->getName() << " --> " << from->getName()
+                      << " (forbidden " << ke.from << " --> " << ke.to << ")" << std::endl;
+        }
+    }
+
+    // Orient required edges: if from→to is required, orient as from→to
+    for (const auto& ke : knowledge_.getListOfRequiredEdges()) {
+        auto from = findNode(ke.from);
+        auto to = findNode(ke.to);
+        if (!from || !to) continue;
+
+        Edge e = g.getEdge(from, to);
+        if (e.isNull()) continue;
+
+        g.removeEdges(from, to);
+        g.addDirectedEdge(from, to);
+
+        if (verbose_) {
+            std::cout << "Knowledge: " << from->getName() << " --> " << to->getName()
+                      << " (required)" << std::endl;
+        }
+    }
+}
+
 void Pc::orientUnshieldedTriples(Graph& g, const SepsetMap& sepsets) {
     auto triples = collectUnshieldedTriples(g);
 
@@ -103,7 +154,7 @@ void Pc::orientUnshieldedTriples(Graph& g, const SepsetMap& sepsets) {
 
         if (!zInSepset) {
             // z not in sepset → orient as collider x → z ← y
-            if (canOrientCollider(g, t.x, t.z, t.y)) {
+            if (colliderAllowed(t.x, t.z, t.y) && canOrientCollider(g, t.x, t.z, t.y)) {
                 orientCollider(g, t.x, t.z, t.y);
                 if (verbose_) {
                     std::cout << "Collider: " << t.x->getName() << " -> "
@@ -112,6 +163,24 @@ void Pc::orientUnshieldedTriples(Graph& g, const SepsetMap& sepsets) {
             }
         }
     }
+}
+
+bool Pc::colliderAllowed(const NodePtr& x, const NodePtr& z, const NodePtr& y) const {
+    if (knowledge_.isEmpty()) return true;
+
+    // Don't orient x→z if knowledge requires z→x or forbids x→z
+    if (knowledge_.isRequired(z->getName(), x->getName()) ||
+        knowledge_.isForbidden(x->getName(), z->getName())) {
+        return false;
+    }
+
+    // Don't orient y→z if knowledge requires z→y or forbids y→z
+    if (knowledge_.isRequired(z->getName(), y->getName()) ||
+        knowledge_.isForbidden(y->getName(), z->getName())) {
+        return false;
+    }
+
+    return true;
 }
 
 bool Pc::canOrientCollider(const Graph& g, const NodePtr& x,
