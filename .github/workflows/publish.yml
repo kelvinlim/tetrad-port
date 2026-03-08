@@ -6,48 +6,72 @@ on:
   workflow_dispatch:  # Allow manual trigger for testing
 
 jobs:
-  build_wheels:
-    name: Build wheels on ${{ matrix.os }}
-    runs-on: ${{ matrix.os }}
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]
-
+  build_wheels_linux:
+    name: Build wheels on Linux
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
-      - name: Set up QEMU (for Linux aarch64 cross-compilation)
-        if: runner.os == 'Linux'
+      - name: Set up QEMU (for aarch64 cross-compilation)
         uses: docker/setup-qemu-action@v3
         with:
           platforms: arm64
 
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
-
-      - name: Pre-install cibuildwheel
-        run: pip install cibuildwheel==2.21.3 virtualenv
-
       - name: Build wheels
-        run: cibuildwheel --output-dir wheelhouse
+        uses: pypa/cibuildwheel@v2.22
         env:
-          # Build only cp312 — STABLE_ABI produces abi3 wheels for 3.11+
           CIBW_BUILD: "cp312-*"
-          CIBW_SKIP: "*-musllinux_i686 *-manylinux_i686 *-win32"
+          CIBW_SKIP: "*-musllinux_i686 *-manylinux_i686"
           CIBW_ARCHS_LINUX: "x86_64 aarch64"
-          CIBW_ARCHS_MACOS: "x86_64 arm64"
-          CIBW_ARCHS_WINDOWS: "AMD64"
-          CIBW_DEPENDENCY_VERSIONS: "pinned"
           CIBW_TEST_REQUIRES: "pytest"
           CIBW_TEST_COMMAND: "pytest {project}/tests/test_python_bindings.py -v"
-          # Skip tests on cross-compiled architectures
-          CIBW_TEST_SKIP: "*-*linux_aarch64 *-macosx_arm64 *-macosx_universal2:arm64"
+          CIBW_TEST_SKIP: "*-*linux_aarch64"
 
       - uses: actions/upload-artifact@v4
         with:
-          name: wheels-${{ matrix.os }}
+          name: wheels-linux
+          path: ./wheelhouse/*.whl
+
+  build_wheels_macos:
+    name: Build wheels on macOS
+    runs-on: macos-latest
+    needs: build_wheels_linux  # Run after Linux to avoid PyPI rate limits
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build wheels
+        uses: pypa/cibuildwheel@v2.22
+        env:
+          CIBW_BUILD: "cp312-*"
+          CIBW_ARCHS_MACOS: "x86_64 arm64"
+          CIBW_TEST_REQUIRES: "pytest"
+          CIBW_TEST_COMMAND: "pytest {project}/tests/test_python_bindings.py -v"
+          CIBW_TEST_SKIP: "*-macosx_arm64 *-macosx_universal2:arm64"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: wheels-macos
+          path: ./wheelhouse/*.whl
+
+  build_wheels_windows:
+    name: Build wheels on Windows
+    runs-on: windows-latest
+    needs: build_wheels_macos  # Run after macOS to avoid PyPI rate limits
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build wheels
+        uses: pypa/cibuildwheel@v2.22
+        env:
+          CIBW_BUILD: "cp312-*"
+          CIBW_SKIP: "*-win32"
+          CIBW_ARCHS_WINDOWS: "AMD64"
+          CIBW_TEST_REQUIRES: "pytest"
+          CIBW_TEST_COMMAND: "pytest {project}/tests/test_python_bindings.py -v"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: wheels-windows
           path: ./wheelhouse/*.whl
 
   build_sdist:
@@ -66,7 +90,7 @@ jobs:
 
   publish:
     name: Publish to PyPI
-    needs: [build_wheels, build_sdist]
+    needs: [build_wheels_linux, build_wheels_macos, build_wheels_windows, build_sdist]
     runs-on: ubuntu-latest
     if: github.event_name == 'release'
     environment: release
