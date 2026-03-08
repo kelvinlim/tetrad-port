@@ -51,10 +51,12 @@ test-requires = "pytest"
 test-command = "pytest {project}/tests/test_python_bindings.py -v"
 
 [tool.cibuildwheel.linux]
-archs = ["x86_64", "aarch64"]
+# archs = ["x86_64", "aarch64"]
+archs = ["x86_64"]
 
 [tool.cibuildwheel.macos]
-archs = ["x86_64", "arm64"]
+# archs = ["x86_64", "arm64"]
+archs = ["arm64"]
 
 [tool.cibuildwheel.windows]
 archs = ["AMD64"]
