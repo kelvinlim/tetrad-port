@@ -11,6 +11,8 @@
 #include "search/fges.h"
 #include "search/sem_bic_score.h"
 #include "search/gfci.h"
+#include "search/boss.h"
+#include "search/permutation_search.h"
 #include "graph/graph.h"
 #include "graph/edge.h"
 #include "graph/node.h"
@@ -169,8 +171,44 @@ static SearchResult run_gfci_raw(
     return graph_to_result(g);
 }
 
+static SearchResult run_boss_raw(
+    const Eigen::MatrixXd& data,
+    const std::vector<std::string>& col_names,
+    double penalty_discount,
+    bool use_bes,
+    int num_starts,
+    bool use_data_order,
+    bool verbose,
+    const Knowledge& knowledge = Knowledge()
+) {
+    if (static_cast<int>(col_names.size()) != data.cols()) {
+        throw std::invalid_argument(
+            "Number of column names (" + std::to_string(col_names.size()) +
+            ") must match number of columns (" + std::to_string(data.cols()) + ")"
+        );
+    }
+
+    DataSet ds(data, col_names);
+    SemBicScore score(ds);
+    score.setPenaltyDiscount(penalty_discount);
+
+    Boss boss(score);
+    boss.setUseBes(use_bes);
+    boss.setNumStarts(num_starts);
+    boss.setUseDataOrder(use_data_order);
+    boss.setVerbose(verbose);
+    if (!knowledge.isEmpty()) boss.setKnowledge(knowledge);
+
+    PermutationSearch search(boss);
+    if (!knowledge.isEmpty()) search.setKnowledge(knowledge);
+
+    Graph g = search.search();
+
+    return graph_to_result(g);
+}
+
 NB_MODULE(_tetrad_cpp, m) {
-    m.doc() = "C++ tetrad-port bindings: PC, FGES, and GFCI algorithms for causal discovery";
+    m.doc() = "C++ tetrad-port bindings: PC, FGES, GFCI, and BOSS algorithms for causal discovery";
 
     nb::class_<Knowledge>(m, "Knowledge")
         .def(nb::init<>())
@@ -288,6 +326,32 @@ NB_MODULE(_tetrad_cpp, m) {
         "    knowledge: background knowledge (Knowledge object)\n\n"
         "Returns:\n"
         "    SearchResult with edges (PAG edge strings) and nodes"
+    );
+
+    m.def("run_boss_raw", &run_boss_raw,
+        nb::arg("data"),
+        nb::arg("col_names"),
+        nb::arg("penalty_discount") = 1.0,
+        nb::arg("use_bes") = false,
+        nb::arg("num_starts") = 1,
+        nb::arg("use_data_order") = true,
+        nb::arg("verbose") = false,
+        nb::arg("knowledge") = Knowledge(),
+        "Run the BOSS (Best Order Score Search) algorithm on data.\n\n"
+        "BOSS is a permutation-based algorithm that finds optimal variable\n"
+        "orderings by iteratively moving variables to score-maximizing\n"
+        "positions using GrowShrink trees for efficient caching.\n\n"
+        "Args:\n"
+        "    data: numpy array (n_samples x n_variables)\n"
+        "    col_names: list of variable names\n"
+        "    penalty_discount: BIC penalty multiplier (1.0 = standard BIC)\n"
+        "    use_bes: run Backward Equivalence Search refinement (default False)\n"
+        "    num_starts: number of random restarts (default 1)\n"
+        "    use_data_order: use data column order for first run (default True)\n"
+        "    verbose: print progress to stdout\n"
+        "    knowledge: background knowledge (Knowledge object)\n\n"
+        "Returns:\n"
+        "    SearchResult with edges, nodes"
     );
 
     nb::class_<Node>(m, "Node")

@@ -1,12 +1,13 @@
 """
 tetrad_port: Python bindings for causal discovery algorithms from CMU's Tetrad.
 
-Provides PC, FGES, and GFCI algorithms with a simple facade API:
+Provides PC, FGES, GFCI, and BOSS algorithms with a simple facade API:
 
     tp = TetradPort()
     results, graph_info = tp.run_pc(df, alpha=0.05)
     results, graph_info = tp.run_fges(df, penalty_discount=1.0)
     results, graph_info = tp.run_gfci(df, alpha=0.05)
+    results, graph_info = tp.run_boss(df, penalty_discount=1.0)
 """
 
 from __future__ import annotations
@@ -17,7 +18,7 @@ import numpy as np
 import pandas as pd
 
 from tetrad_port._tetrad_cpp import (
-    run_pc_raw, run_fges_raw, run_gfci_raw,
+    run_pc_raw, run_fges_raw, run_gfci_raw, run_boss_raw,
     PcResult, SearchResult, Knowledge,
 )
 
@@ -33,6 +34,7 @@ class TetradPort:
     - **PC**: Constraint-based, returns a CPDAG. Good when you have no latent confounders.
     - **FGES**: Score-based (BIC), returns a CPDAG. Faster than PC for large graphs.
     - **GFCI**: Hybrid (score + constraint), returns a PAG. Handles latent confounders.
+    - **BOSS**: Permutation-based (BIC), returns a CPDAG. High precision, fast for large sparse graphs.
 
     Example
     -------
@@ -40,6 +42,7 @@ class TetradPort:
     >>> results, graph_info = tp.run_pc(df, alpha=0.05)
     >>> results, graph_info = tp.run_fges(df)
     >>> results, graph_info = tp.run_gfci(df, alpha=0.05)
+    >>> results, graph_info = tp.run_boss(df)
     """
 
     def __init__(self, verbose: bool = False):
@@ -268,6 +271,80 @@ class TetradPort:
         }
 
         graph_info = self._parse_edges_to_graph_info(gfci_result.edges, gfci_result.nodes)
+        return results, graph_info
+
+    # ----------------------------------------------------------------
+    # Core: run_boss
+    # ----------------------------------------------------------------
+
+    def run_boss(
+        self,
+        df: pd.DataFrame,
+        penalty_discount: float = 1.0,
+        use_bes: bool = False,
+        num_starts: int = 1,
+        use_data_order: bool = True,
+        knowledge: Optional[Knowledge] = None,
+        verbose: Optional[bool] = None,
+    ) -> tuple[dict[str, Any], dict[str, Any]]:
+        """
+        Run the BOSS (Best Order Score Search) algorithm.
+
+        BOSS is a permutation-based algorithm that finds optimal variable
+        orderings by iteratively moving variables to score-maximizing
+        positions using GrowShrink trees for efficient caching.
+
+        Characterized by high adjacency and orientation precision, especially
+        for moderate sample sizes. Faster than GES for large sparse graphs.
+
+        Parameters
+        ----------
+        df : pd.DataFrame
+            Continuous data. All columns must be numeric.
+        penalty_discount : float
+            BIC penalty multiplier. 1.0 = standard BIC.
+        use_bes : bool
+            Run Backward Equivalence Search refinement. Needed for
+            correctness under faithfulness, but has little effect on
+            large models. Default False.
+        num_starts : int
+            Number of random restarts. Best-scoring result is returned.
+        use_data_order : bool
+            Use data column order for the first run. Default True.
+        knowledge : Knowledge or None
+            Background knowledge (temporal tiers, forbidden/required edges).
+        verbose : bool or None
+            Override instance-level verbose setting.
+
+        Returns
+        -------
+        results : dict
+            Keys: 'edges', 'nodes', 'num_edges', 'num_nodes',
+                  'penalty_discount'
+        graph_info : dict
+            Keys: 'adjacency', 'directed_edges', 'undirected_edges'
+        """
+        v = verbose if verbose is not None else self.verbose
+        data, col_names = self._validate_and_extract(df)
+        k = knowledge if knowledge is not None else Knowledge()
+
+        boss_result: SearchResult = run_boss_raw(
+            data=data, col_names=col_names,
+            penalty_discount=penalty_discount,
+            use_bes=use_bes, num_starts=num_starts,
+            use_data_order=use_data_order,
+            verbose=v, knowledge=k,
+        )
+
+        results = {
+            "edges": list(boss_result.edges),
+            "nodes": list(boss_result.nodes),
+            "num_edges": boss_result.num_edges,
+            "num_nodes": boss_result.num_nodes,
+            "penalty_discount": penalty_discount,
+        }
+
+        graph_info = self._parse_edges_to_graph_info(boss_result.edges, boss_result.nodes)
         return results, graph_info
 
     # ----------------------------------------------------------------
