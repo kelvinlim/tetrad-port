@@ -85,7 +85,7 @@ jobs:
       - name: Pre-cache virtualenv for cibuildwheel
         shell: pwsh
         run: |
-          $cacheDir = "$env:LOCALAPPDATA\cibuildwheel"
+          $cacheDir = "$env:LOCALAPPDATA\pypa\cibuildwheel\Cache"
           New-Item -ItemType Directory -Force -Path $cacheDir | Out-Null
           $url = "https://github.com/pypa/get-virtualenv/blob/20.27.1/public/virtualenv.pyz?raw=true"
           $dest = "$cacheDir\virtualenv-20.27.1.pyz"
