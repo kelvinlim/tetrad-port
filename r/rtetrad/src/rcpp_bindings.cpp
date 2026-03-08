@@ -21,6 +21,18 @@ static std::string endpointToString(Endpoint ep) {
     return "UNKNOWN";
 }
 
+static std::string edgeTypeString(Endpoint ep1, Endpoint ep2) {
+    std::string s;
+    if (ep1 == Endpoint::TAIL)        s += "-";
+    else if (ep1 == Endpoint::ARROW)  s += "<";
+    else if (ep1 == Endpoint::CIRCLE) s += "o";
+    s += "-";
+    if (ep2 == Endpoint::TAIL)        s += "-";
+    else if (ep2 == Endpoint::ARROW)  s += ">";
+    else if (ep2 == Endpoint::CIRCLE) s += "o";
+    return s;
+}
+
 static Rcpp::List graphToList(Graph& g, const std::string& algorithm,
                                double model_score = NA_REAL) {
     auto edges = g.getEdges();
@@ -33,10 +45,7 @@ static Rcpp::List graphToList(Graph& g, const std::string& algorithm,
         to_vec.push_back(e.getNode2()->getName());
         ep1_vec.push_back(endpointToString(e.getEndpoint1()));
         ep2_vec.push_back(endpointToString(e.getEndpoint2()));
-        type_vec.push_back(e.toString().substr(
-            e.getNode1()->getName().size() + 1,
-            e.toString().size() - e.getNode1()->getName().size()
-                - e.getNode2()->getName().size() - 2));
+        type_vec.push_back(edgeTypeString(e.getEndpoint1(), e.getEndpoint2()));
     }
 
     Rcpp::DataFrame edge_df = Rcpp::DataFrame::create(

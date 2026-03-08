@@ -57,3 +57,34 @@ test_that("run_pc print method works", {
   result <- run_pc(data, alpha = 0.05)
   expect_output(print(result), "Tetrad PC result")
 })
+
+test_that("run_pc detects collider and produces directed edges", {
+  set.seed(42)
+  n <- 2000
+  X <- rnorm(n)
+  Z <- rnorm(n)
+  Y <- 0.8 * X + 0.8 * Z + rnorm(n, sd = 0.3)
+  data <- data.frame(X = X, Y = Y, Z = Z)
+
+  result <- run_pc(data, alpha = 0.01)
+  expect_equal(result$num_edges, 2)
+  expect_true(all(result$edges$edge_type == "-->"))
+  expect_true(all(result$edges$endpoint2 == "ARROW"))
+})
+
+test_that("run_pc generates V-prefixed names for unnamed matrix", {
+  set.seed(42)
+  mat <- matrix(rnorm(300), ncol = 3)
+
+  result <- run_pc(mat, alpha = 0.05)
+  expect_equal(sort(result$nodes), c("V1", "V2", "V3"))
+})
+
+test_that("run_pc rejects non-numeric data", {
+  data <- data.frame(A = c("x", "y", "z"), B = 1:3)
+  expect_error(run_pc(data), "numeric")
+})
+
+test_that("run_pc rejects non-data.frame/matrix input", {
+  expect_error(run_pc(list(a = 1:3)), "data.frame or numeric matrix")
+})

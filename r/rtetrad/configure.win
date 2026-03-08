@@ -1,0 +1,27 @@
+#!/bin/sh
+
+# Windows configure: generate Makevars.win with resolved Eigen flags
+
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+
+# Symlink or vendored source
+TETRAD_SRC="$(cd "${SCRIPT_DIR}/../../src" 2>/dev/null && pwd)"
+if [ -n "$TETRAD_SRC" ] && [ -d "$TETRAD_SRC/graph" ]; then
+    echo "Symlinking tetrad source from: $TETRAD_SRC"
+    mkdir -p "${SCRIPT_DIR}/src/tetrad"
+    for dir in graph data search util; do
+        rm -f "${SCRIPT_DIR}/src/tetrad/${dir}"
+        ln -s "${TETRAD_SRC}/${dir}" "${SCRIPT_DIR}/src/tetrad/${dir}"
+    done
+fi
+
+# Clean stale object files
+find "${SCRIPT_DIR}/src" -name "*.o" -delete 2>/dev/null
+
+# Generate Makevars.win
+if [ -f "${SCRIPT_DIR}/src/Makevars.win.in" ]; then
+    : "${R_HOME:=$(R RHOME 2>/dev/null)}"
+    EIGEN_CXXFLAGS=$("${R_HOME}/bin${R_ARCH_BIN}/Rscript.exe" -e "cat(RcppEigen:::CxxFlags())" 2>/dev/null)
+    sed "s|@EIGEN_CXXFLAGS@|${EIGEN_CXXFLAGS}|g" \
+        "${SCRIPT_DIR}/src/Makevars.win.in" > "${SCRIPT_DIR}/src/Makevars.win"
+fi

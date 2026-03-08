@@ -31,3 +31,22 @@ test_that("run_gfci works with knowledge", {
   result <- run_gfci(data, alpha = 0.05, knowledge = k)
   expect_s3_class(result, "tetrad_result")
 })
+
+test_that("run_gfci edge_type values are valid PAG types", {
+  set.seed(42)
+  n <- 500
+  L <- rnorm(n)
+  X <- 0.8 * L + rnorm(n, sd = 0.5)
+  Y <- 0.8 * L + rnorm(n, sd = 0.5)
+  Z <- 0.6 * X + rnorm(n, sd = 0.5)
+  data <- data.frame(X = X, Y = Y, Z = Z)
+
+  result <- run_gfci(data, alpha = 0.05)
+
+  valid_types <- c("-->", "---", "<->", "o->", "o-o")
+  expect_true(all(result$edges$edge_type %in% valid_types))
+
+  valid_endpoints <- c("TAIL", "ARROW", "CIRCLE", "NULL")
+  expect_true(all(result$edges$endpoint1 %in% valid_endpoints))
+  expect_true(all(result$edges$endpoint2 %in% valid_endpoints))
+})

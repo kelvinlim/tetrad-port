@@ -1,0 +1,7 @@
+#!/bin/sh
+
+# Remove generated files after R CMD check/build
+rm -f src/Makevars
+find src -name "*.o" -delete 2>/dev/null
+find src -name "*.so" -delete 2>/dev/null
+find src -name "*.dll" -delete 2>/dev/null

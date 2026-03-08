@@ -334,11 +334,16 @@ echo "Done. Run 'R CMD build r/rtetrad' to create tarball."
 
 **Key design decision**: R's staged installation copies package to a temp dir, breaking relative paths to `../../src/`. Solved with a `configure` script that creates symlinks from `src/tetrad/{graph,data,search,util}` → canonical source. Makevars uses `-Itetrad` and local `tetrad/` paths.
 
-### Phase 2: Polish
-- [ ] Generate roxygen2 man pages (`devtools::document()`)
-- [ ] Add `R CMD check` CI (GitHub Actions)
-- [ ] Verify edge_type extraction for all edge types (directed, bidirected, partially oriented)
-- [ ] Add more edge cases to tests
+### Phase 2: Polish ✓ DONE
+- [x] Generate roxygen2 man pages (10 .Rd files in `man/`)
+- [x] Fix edge_type extraction — replaced fragile `toString()` substring with direct `edgeTypeString()` from endpoints
+- [x] Eliminate `std::cout` symbol from R build (`-DRTETRAD_NO_COUT` flag)
+- [x] Fix GNU extensions WARNING — `configure` generates `Makevars` from `Makevars.in`
+- [x] Fix `.o` files NOTE — `cleanup` script removes build artifacts
+- [x] Add edge-case tests: collider/directed edges, unnamed matrix, invalid input, PAG edge types
+- [x] `R CMD check` passes: 0 errors, 0 warnings, 1 NOTE (installed size only)
+- [x] 42 testthat tests pass
+- [ ] Add `R CMD check` CI (GitHub Actions) — deferred to Phase 3
 
 ### Phase 3: CRAN Prep
 - [ ] Write vendor script (`scripts/vendor_for_cran.sh`)

@@ -1,7 +1,6 @@
 CXX_STD = CXX17
 
-PKG_CXXFLAGS = $(shell "${R_HOME}/bin${R_ARCH_BIN}/Rscript.exe" -e "RcppEigen:::CxxFlags()") \
-               -Itetrad
+PKG_CXXFLAGS = @EIGEN_CXXFLAGS@ -Itetrad -DRTETRAD_NO_COUT
 
 TETRAD_OBJECTS = \
     tetrad/graph/node.o \
@@ -22,6 +21,3 @@ TETRAD_OBJECTS = \
     tetrad/util/log_stream.o
 
 OBJECTS = rcpp_bindings.o RcppExports.o $(TETRAD_OBJECTS)
-
-tetrad/%.o: tetrad/%.cpp
-	$(CXX) $(ALL_CPPFLAGS) $(ALL_CXXFLAGS) -c $< -o $@

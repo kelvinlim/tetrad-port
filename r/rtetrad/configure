@@ -1,28 +1,46 @@
 #!/bin/sh
 
-# Create symlinks from src/tetrad/ to the canonical C++ source.
-# This allows R's standard build system to compile everything from src/.
+# Configure script for rtetrad:
+# 1. Create symlinks to canonical C++ source (dev mode) or use vendored source
+# 2. Generate src/Makevars from src/Makevars.in with resolved Eigen flags
+# 3. Clean stale .o files
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 TETRAD_SRC="$(cd "${SCRIPT_DIR}/../../src" 2>/dev/null && pwd)"
 
+# --- Symlink or vendored source ---
+
 if [ -z "$TETRAD_SRC" ] || [ ! -d "$TETRAD_SRC/graph" ]; then
-    # CRAN/vendored mode: src/tetrad/ should already exist
     if [ -d "${SCRIPT_DIR}/src/tetrad/graph" ]; then
         echo "Using vendored tetrad source in src/tetrad/"
-        exit 0
+    else
+        echo "ERROR: Cannot find tetrad C++ source"
+        exit 1
     fi
-    echo "ERROR: Cannot find tetrad C++ source"
-    exit 1
+else
+    echo "Symlinking tetrad source from: $TETRAD_SRC"
+    mkdir -p "${SCRIPT_DIR}/src/tetrad"
+    for dir in graph data search util; do
+        rm -f "${SCRIPT_DIR}/src/tetrad/${dir}"
+        ln -s "${TETRAD_SRC}/${dir}" "${SCRIPT_DIR}/src/tetrad/${dir}"
+    done
+    echo "Done. Symlinks created in src/tetrad/"
 fi
 
-echo "Symlinking tetrad source from: $TETRAD_SRC"
+# --- Clean stale object files ---
 
-# Create symlinks for each source subdirectory
-mkdir -p "${SCRIPT_DIR}/src/tetrad"
-for dir in graph data search util; do
-    rm -f "${SCRIPT_DIR}/src/tetrad/${dir}"
-    ln -s "${TETRAD_SRC}/${dir}" "${SCRIPT_DIR}/src/tetrad/${dir}"
-done
+find "${SCRIPT_DIR}/src" -name "*.o" -delete 2>/dev/null
 
-echo "Done. Symlinks created in src/tetrad/"
+# --- Generate Makevars from Makevars.in ---
+
+if [ -f "${SCRIPT_DIR}/src/Makevars.in" ]; then
+    : "${R_HOME:=$(R RHOME 2>/dev/null)}"
+    EIGEN_CXXFLAGS=$("${R_HOME}/bin/Rscript" -e "cat(RcppEigen:::CxxFlags())" 2>/dev/null)
+    if [ -z "$EIGEN_CXXFLAGS" ]; then
+        echo "WARNING: Could not resolve RcppEigen flags, using empty"
+        EIGEN_CXXFLAGS=""
+    fi
+    sed "s|@EIGEN_CXXFLAGS@|${EIGEN_CXXFLAGS}|g" \
+        "${SCRIPT_DIR}/src/Makevars.in" > "${SCRIPT_DIR}/src/Makevars"
+    echo "Generated src/Makevars with EIGEN_CXXFLAGS=${EIGEN_CXXFLAGS}"
+fi
