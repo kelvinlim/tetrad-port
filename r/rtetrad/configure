@@ -1,0 +1,28 @@
+#!/bin/sh
+
+# Create symlinks from src/tetrad/ to the canonical C++ source.
+# This allows R's standard build system to compile everything from src/.
+
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+TETRAD_SRC="$(cd "${SCRIPT_DIR}/../../src" 2>/dev/null && pwd)"
+
+if [ -z "$TETRAD_SRC" ] || [ ! -d "$TETRAD_SRC/graph" ]; then
+    # CRAN/vendored mode: src/tetrad/ should already exist
+    if [ -d "${SCRIPT_DIR}/src/tetrad/graph" ]; then
+        echo "Using vendored tetrad source in src/tetrad/"
+        exit 0
+    fi
+    echo "ERROR: Cannot find tetrad C++ source"
+    exit 1
+fi
+
+echo "Symlinking tetrad source from: $TETRAD_SRC"
+
+# Create symlinks for each source subdirectory
+mkdir -p "${SCRIPT_DIR}/src/tetrad"
+for dir in graph data search util; do
+    rm -f "${SCRIPT_DIR}/src/tetrad/${dir}"
+    ln -s "${TETRAD_SRC}/${dir}" "${SCRIPT_DIR}/src/tetrad/${dir}"
+done
+
+echo "Done. Symlinks created in src/tetrad/"

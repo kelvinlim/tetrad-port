@@ -1,0 +1,22 @@
+Package: rtetrad
+Type: Package
+Title: Causal Discovery Algorithms from CMU's Tetrad
+Version: 0.1.0
+Authors@R: person("Kolim", "Olim", role = c("aut", "cre"),
+                  email = "kolim@example.com")
+Description: R interface to high-performance C++ implementations of causal
+    discovery algorithms from the Tetrad project (Carnegie Mellon University).
+    Supports constraint-based (PC), score-based (FGES), and hybrid (GFCI)
+    algorithms with background knowledge constraints including forbidden edges,
+    required edges, and temporal tiers.
+License: MIT + file LICENSE
+URL: https://github.com/kolim/tetrad-port
+BugReports: https://github.com/kolim/tetrad-port/issues
+Encoding: UTF-8
+Roxygen: list(markdown = TRUE)
+RoxygenNote: 7.3.1
+Imports: Rcpp
+LinkingTo: Rcpp, RcppEigen
+Suggests: testthat (>= 3.0.0)
+Config/testthat/edition: 3
+SystemRequirements: C++17

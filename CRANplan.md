@@ -5,8 +5,9 @@ R interface to tetrad-port via Rcpp + RcppEigen, using a monorepo layout with ve
 ## Strategy
 
 - R package lives at `r/rtetrad/` in this repo
-- During development, `Makevars` compiles the canonical C++ source via relative paths
-- For CRAN submission, a script vendors (copies) all C++ source into the package
+- During development, a `configure` script creates symlinks from `src/tetrad/` → canonical C++ source
+- `Makevars` compiles using local `tetrad/` paths (works with both symlinks and vendored copies)
+- For CRAN submission, a script vendors (copies) all C++ source into `src/tetrad/`
 - One C++ codebase, always — vendoring is a release step, not a development workflow
 
 ## Prerequisites: C++ Changes Required
@@ -312,34 +313,38 @@ echo "Done. Run 'R CMD build r/rtetrad' to create tarball."
 
 ## Implementation Phases
 
-### Phase 0: C++ Prep (prerequisite)
-- [ ] Add `src/util/log_stream.h` and `log_stream.cpp` with configurable ostream
-- [ ] Replace all `std::cout` in search code with `logStream()`
-- [ ] Verify C++ tests and Python bindings still work
+### Phase 0: C++ Prep (prerequisite) ✓ DONE
+- [x] Add `src/util/log_stream.h` and `log_stream.cpp` with configurable ostream
+- [x] Replace all `std::cout` in search code with `logStream()`
+- [x] Verify C++ tests and Python bindings still work
 
-### Phase 1: Scaffold + PC
-- [ ] Create `r/rtetrad/` directory structure
-- [ ] Write `DESCRIPTION` (Title, Imports: Rcpp, LinkingTo: Rcpp, RcppEigen)
-- [ ] Write `Makevars` for monorepo dev build
-- [ ] Write `rcpp_bindings.cpp` with `run_pc_cpp()` and Knowledge helpers
-- [ ] Write `R/pc.R` with `run_pc()` function
-- [ ] Write `R/knowledge.R` with knowledge helpers
-- [ ] Write `R/rtetrad-package.R` with `.onLoad` (set log stream to Rcpp::Rcout)
-- [ ] Write `tests/testthat/test-pc.R`
-- [ ] Verify `R CMD check` passes with 0 errors
+### Phase 1: Scaffold + PC/FGES/GFCI ✓ DONE
+- [x] Create `r/rtetrad/` directory structure
+- [x] Write `DESCRIPTION` (Title, Imports: Rcpp, LinkingTo: Rcpp, RcppEigen)
+- [x] Write `configure` script (creates symlinks for monorepo dev build)
+- [x] Write `Makevars` and `Makevars.win` using local `tetrad/` paths (symlinked by configure)
+- [x] Write `rcpp_bindings.cpp` with `run_pc_cpp()`, `run_fges_cpp()`, `run_gfci_cpp()` and Knowledge helpers
+- [x] Write `R/pc.R`, `R/fges.R`, `R/gfci.R` with roxygen2 docs
+- [x] Write `R/knowledge.R` with knowledge helpers
+- [x] Write `R/rtetrad-package.R` with `.onLoad` (set log stream to Rcpp::Rcout)
+- [x] Write `R/utils.R` with `prepare_data()` helper
+- [x] Write `tests/testthat/test-pc.R`, `test-fges.R`, `test-gfci.R`, `test-knowledge.R`
+- [x] S3 print method for `tetrad_result` (registered in NAMESPACE)
+- [x] Package installs and all 33 tests pass
 
-### Phase 2: FGES + GFCI
-- [ ] Add `run_fges_cpp()` and `run_gfci_cpp()` to bindings
-- [ ] Write `R/fges.R` and `R/gfci.R`
-- [ ] Write tests for both
-- [ ] S3 print method for `tetrad_result`
+**Key design decision**: R's staged installation copies package to a temp dir, breaking relative paths to `../../src/`. Solved with a `configure` script that creates symlinks from `src/tetrad/{graph,data,search,util}` → canonical source. Makevars uses `-Itetrad` and local `tetrad/` paths.
 
-### Phase 3: Polish + CRAN
-- [ ] Write vendor script
+### Phase 2: Polish
+- [ ] Generate roxygen2 man pages (`devtools::document()`)
+- [ ] Add `R CMD check` CI (GitHub Actions)
+- [ ] Verify edge_type extraction for all edge types (directed, bidirected, partially oriented)
+- [ ] Add more edge cases to tests
+
+### Phase 3: CRAN Prep
+- [ ] Write vendor script (`scripts/vendor_for_cran.sh`)
 - [ ] Write `Makevars.cran` and `Makevars.cran.win`
 - [ ] Verify vendored build works: `R CMD build` + `R CMD check --as-cran`
 - [ ] Write vignette (`vignettes/introduction.Rmd`)
-- [ ] roxygen2 documentation for all exported functions
 - [ ] Test on Windows (GitHub Actions or win-builder.r-project.org)
 - [ ] Submit to CRAN
 

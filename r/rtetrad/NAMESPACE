@@ -1,0 +1,13 @@
+useDynLib(rtetrad, .registration = TRUE)
+importFrom(Rcpp, sourceCpp)
+
+export(run_pc)
+export(run_fges)
+export(run_gfci)
+export(tetrad_knowledge)
+export(add_forbidden)
+export(add_required)
+export(set_tier)
+export(set_tier_forbidden_within)
+
+S3method(print, tetrad_result)
