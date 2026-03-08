@@ -9,6 +9,10 @@ C++ port of [CMU's Tetrad](https://github.com/cmu-phil/tetrad) causal inference 
 | **PC** | Constraint-based (Fisher Z) | CPDAG | No |
 | **FGES** | Score-based (BIC) | CPDAG | No |
 | **GFCI** | Hybrid (FGES + FCI rules) | PAG | Yes |
+| **BOSS** | Permutation-based (BIC) | CPDAG | No |
+| **BOSS-FCI** | BOSS + FCI rules | PAG | Yes |
+| **GRaSP** | Permutation-based (tuck DFS) | CPDAG | No |
+| **GRaSP-FCI** | GRaSP + FCI rules | PAG | Yes |
 
 All algorithms support **background knowledge**: temporal tiers, forbidden edges, and required edges.
 
@@ -33,6 +37,16 @@ results, graph_info = tp.run_fges(df, penalty_discount=1.0)
 
 # Run GFCI (handles latent confounders)
 results, graph_info = tp.run_gfci(df, alpha=0.05)
+
+# Run BOSS (permutation-based, often faster than FGES)
+results, graph_info = tp.run_boss(df, penalty_discount=1.0)
+
+# Run GRaSP (permutation-based with DFS tucks)
+results, graph_info = tp.run_grasp(df, penalty_discount=1.0)
+
+# Run BOSS-FCI or GRaSP-FCI (latent confounders)
+results, graph_info = tp.run_boss_fci(df, alpha=0.05)
+results, graph_info = tp.run_grasp_fci(df, alpha=0.05)
 
 # Add background knowledge
 k = Knowledge()
