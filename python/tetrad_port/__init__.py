@@ -1,13 +1,14 @@
 """
 tetrad_port: Python bindings for causal discovery algorithms from CMU's Tetrad.
 
-Provides PC, FGES, GFCI, and BOSS algorithms with a simple facade API:
+Provides PC, FGES, GFCI, BOSS, and BOSS-FCI algorithms with a simple facade API:
 
     tp = TetradPort()
     results, graph_info = tp.run_pc(df, alpha=0.05)
     results, graph_info = tp.run_fges(df, penalty_discount=1.0)
     results, graph_info = tp.run_gfci(df, alpha=0.05)
     results, graph_info = tp.run_boss(df, penalty_discount=1.0)
+    results, graph_info = tp.run_boss_fci(df, alpha=0.05)
 """
 
 from __future__ import annotations
@@ -18,7 +19,7 @@ import numpy as np
 import pandas as pd
 
 from tetrad_port._tetrad_cpp import (
-    run_pc_raw, run_fges_raw, run_gfci_raw, run_boss_raw,
+    run_pc_raw, run_fges_raw, run_gfci_raw, run_boss_raw, run_boss_fci_raw,
     PcResult, SearchResult, Knowledge,
 )
 
@@ -35,6 +36,7 @@ class TetradPort:
     - **FGES**: Score-based (BIC), returns a CPDAG. Faster than PC for large graphs.
     - **GFCI**: Hybrid (score + constraint), returns a PAG. Handles latent confounders.
     - **BOSS**: Permutation-based (BIC), returns a CPDAG. High precision, fast for large sparse graphs.
+    - **BOSS-FCI**: BOSS + FCI orientation rules, returns a PAG. Handles latent confounders.
 
     Example
     -------
@@ -43,6 +45,7 @@ class TetradPort:
     >>> results, graph_info = tp.run_fges(df)
     >>> results, graph_info = tp.run_gfci(df, alpha=0.05)
     >>> results, graph_info = tp.run_boss(df)
+    >>> results, graph_info = tp.run_boss_fci(df, alpha=0.05)
     """
 
     def __init__(self, verbose: bool = False):
@@ -345,6 +348,88 @@ class TetradPort:
         }
 
         graph_info = self._parse_edges_to_graph_info(boss_result.edges, boss_result.nodes)
+        return results, graph_info
+
+    # ----------------------------------------------------------------
+    # Core: run_boss_fci
+    # ----------------------------------------------------------------
+
+    def run_boss_fci(
+        self,
+        df: pd.DataFrame,
+        alpha: float = 0.05,
+        penalty_discount: float = 1.0,
+        depth: int = -1,
+        complete_rule_set: bool = True,
+        max_disc_path_length: int = -1,
+        use_bes: bool = False,
+        num_starts: int = 1,
+        knowledge: Optional[Knowledge] = None,
+        verbose: Optional[bool] = None,
+    ) -> tuple[dict[str, Any], dict[str, Any]]:
+        """
+        Run the BOSS-FCI algorithm.
+
+        BOSS-FCI combines the permutation-based BOSS algorithm with FCI
+        orientation rules to handle latent (unmeasured) confounders.
+        Returns a PAG (Partial Ancestral Graph).
+
+        Parameters
+        ----------
+        df : pd.DataFrame
+            Continuous data. All columns must be numeric.
+        alpha : float
+            Significance level for conditional independence tests.
+        penalty_discount : float
+            BIC penalty multiplier for the BOSS scoring phase.
+        depth : int
+            Maximum conditioning set size. -1 for unlimited.
+        complete_rule_set : bool
+            Use Zhang's complete rules R1-R10 (default True).
+        max_disc_path_length : int
+            Maximum discriminating path length for R4. -1 for unlimited.
+        use_bes : bool
+            Run BES refinement in BOSS (default False).
+        num_starts : int
+            Number of random restarts for BOSS (default 1).
+        knowledge : Knowledge or None
+            Background knowledge (temporal tiers, forbidden/required edges).
+        verbose : bool or None
+            Override instance-level verbose setting.
+
+        Returns
+        -------
+        results : dict
+            Keys: 'edges', 'nodes', 'num_edges', 'num_nodes',
+                  'alpha', 'penalty_discount'
+        graph_info : dict
+            Keys: 'adjacency', 'directed_edges', 'undirected_edges',
+                  'bidirected_edges', 'partially_oriented_edges',
+                  'circle_edges'
+        """
+        v = verbose if verbose is not None else self.verbose
+        data, col_names = self._validate_and_extract(df)
+        k = knowledge if knowledge is not None else Knowledge()
+
+        bfci_result: SearchResult = run_boss_fci_raw(
+            data=data, col_names=col_names,
+            alpha=alpha, penalty_discount=penalty_discount,
+            depth=depth, complete_rule_set=complete_rule_set,
+            max_disc_path_length=max_disc_path_length,
+            use_bes=use_bes, num_starts=num_starts,
+            verbose=v, knowledge=k,
+        )
+
+        results = {
+            "edges": list(bfci_result.edges),
+            "nodes": list(bfci_result.nodes),
+            "num_edges": bfci_result.num_edges,
+            "num_nodes": bfci_result.num_nodes,
+            "alpha": alpha,
+            "penalty_discount": penalty_discount,
+        }
+
+        graph_info = self._parse_edges_to_graph_info(bfci_result.edges, bfci_result.nodes)
         return results, graph_info
 
     # ----------------------------------------------------------------

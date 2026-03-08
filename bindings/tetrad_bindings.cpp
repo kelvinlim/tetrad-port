@@ -13,6 +13,7 @@
 #include "search/gfci.h"
 #include "search/boss.h"
 #include "search/permutation_search.h"
+#include "search/boss_fci.h"
 #include "graph/graph.h"
 #include "graph/edge.h"
 #include "graph/node.h"
@@ -207,8 +208,47 @@ static SearchResult run_boss_raw(
     return graph_to_result(g);
 }
 
+static SearchResult run_boss_fci_raw(
+    const Eigen::MatrixXd& data,
+    const std::vector<std::string>& col_names,
+    double alpha,
+    double penalty_discount,
+    int depth,
+    bool complete_rule_set,
+    int max_disc_path_length,
+    bool use_bes,
+    int num_starts,
+    bool verbose,
+    const Knowledge& knowledge = Knowledge()
+) {
+    if (static_cast<int>(col_names.size()) != data.cols()) {
+        throw std::invalid_argument(
+            "Number of column names (" + std::to_string(col_names.size()) +
+            ") must match number of columns (" + std::to_string(data.cols()) + ")"
+        );
+    }
+
+    DataSet ds(data, col_names);
+    SemBicScore score(ds);
+    score.setPenaltyDiscount(penalty_discount);
+    IndTestFisherZ test(ds, alpha);
+
+    BossFci bfci(test, score);
+    bfci.setDepth(depth);
+    bfci.setVerbose(verbose);
+    bfci.setCompleteRuleSetUsed(complete_rule_set);
+    bfci.setMaxDiscriminatingPathLength(max_disc_path_length);
+    bfci.setBossUseBes(use_bes);
+    bfci.setNumStarts(num_starts);
+    if (!knowledge.isEmpty()) bfci.setKnowledge(knowledge);
+
+    Graph g = bfci.search();
+
+    return graph_to_result(g);
+}
+
 NB_MODULE(_tetrad_cpp, m) {
-    m.doc() = "C++ tetrad-port bindings: PC, FGES, GFCI, and BOSS algorithms for causal discovery";
+    m.doc() = "C++ tetrad-port bindings: PC, FGES, GFCI, BOSS, and BOSS-FCI algorithms for causal discovery";
 
     nb::class_<Knowledge>(m, "Knowledge")
         .def(nb::init<>())
@@ -352,6 +392,38 @@ NB_MODULE(_tetrad_cpp, m) {
         "    knowledge: background knowledge (Knowledge object)\n\n"
         "Returns:\n"
         "    SearchResult with edges, nodes"
+    );
+
+    m.def("run_boss_fci_raw", &run_boss_fci_raw,
+        nb::arg("data"),
+        nb::arg("col_names"),
+        nb::arg("alpha") = 0.05,
+        nb::arg("penalty_discount") = 1.0,
+        nb::arg("depth") = -1,
+        nb::arg("complete_rule_set") = true,
+        nb::arg("max_disc_path_length") = -1,
+        nb::arg("use_bes") = false,
+        nb::arg("num_starts") = 1,
+        nb::arg("verbose") = false,
+        nb::arg("knowledge") = Knowledge(),
+        "Run the BOSS-FCI algorithm on data.\n\n"
+        "BOSS-FCI combines the permutation-based BOSS algorithm with FCI\n"
+        "orientation rules to handle latent (unmeasured) confounders.\n"
+        "Returns a PAG (Partial Ancestral Graph).\n\n"
+        "Args:\n"
+        "    data: numpy array (n_samples x n_variables)\n"
+        "    col_names: list of variable names\n"
+        "    alpha: significance level for independence tests\n"
+        "    penalty_discount: BIC penalty multiplier (1.0 = standard BIC)\n"
+        "    depth: maximum conditioning set size (-1 for unlimited)\n"
+        "    complete_rule_set: use Zhang's complete rules R1-R10 (default True)\n"
+        "    max_disc_path_length: max discriminating path length (-1 unlimited)\n"
+        "    use_bes: run BES refinement in BOSS (default False)\n"
+        "    num_starts: number of random restarts for BOSS (default 1)\n"
+        "    verbose: print progress to stdout\n"
+        "    knowledge: background knowledge (Knowledge object)\n\n"
+        "Returns:\n"
+        "    SearchResult with edges (PAG edge strings) and nodes"
     );
 
     nb::class_<Node>(m, "Node")
