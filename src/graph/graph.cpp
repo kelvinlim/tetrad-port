@@ -205,6 +205,7 @@ std::vector<NodePtr> Graph::getAdjacentNodes(const NodePtr& node) const {
             adj.push_back(distal);
         }
     }
+
     return adj;
 }
 

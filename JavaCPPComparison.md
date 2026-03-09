@@ -3,7 +3,7 @@
 Comparison of **Tetrad 7.6.8 (Java)** against the **C++ port** across all implemented algorithms
 and datasets.
 
-*Auto-generated on 2026-03-09 06:36:03 by `tests/generate_comparison_report.py`.*
+*Auto-generated on 2026-03-09 17:03:40 by `tests/generate_comparison_report.py`.*
 
 ## Metrics
 
@@ -45,14 +45,14 @@ Settings: alpha = 0.01, penalty discount = 1.0.
 | GFCI | PAG | chain (X->Y->Z) | 3 | 3000 | 2 | 2 | 1.000 | 100% | PASS |
 | GFCI | PAG | collider (X->Z<-Y) | 3 | 3000 | 2 | 2 | 1.000 | 100% | PASS |
 | GFCI | PAG | latent (L->X, L->Y, X->Z) | 3 | 3000 | 2 | 2 | 1.000 | 100% | PASS |
-| GFCI | PAG | medium DAG + 2 latents | 8 | 2000 | 10 | 10 | 1.000 | 70% | WARN |
+| GFCI | PAG | medium DAG + 2 latents | 8 | 2000 | 10 | 10 | 1.000 | 100% | PASS |
 | GFCI | PAG | Boston EMA (temporal knowledge) | 14 | 640 | 14 | 15 | 0.933 | 79% | WARN |
 | BOSS-FCI | PAG | chain (X->Y->Z) | 3 | 3000 | 2 | 2 | 1.000 | 100% | PASS |
 | BOSS-FCI | PAG | latent (L->X, L->Y, X->Z) | 3 | 3000 | 2 | 2 | 1.000 | 100% | PASS |
-| BOSS-FCI | PAG | Boston EMA (temporal knowledge) | 14 | 640 | 15 | 16 | 0.938 | 67% | WARN |
+| BOSS-FCI | PAG | Boston EMA (temporal knowledge) | 14 | 640 | 15 | 16 | 0.938 | 93% | WARN |
 | GRASP-FCI | PAG | chain (X->Y->Z) | 3 | 3000 | 2 | 2 | 1.000 | 100% | PASS |
 | GRASP-FCI | PAG | latent (L->X, L->Y, X->Z) | 3 | 3000 | 2 | 2 | 1.000 | 100% | PASS |
-| GRASP-FCI | PAG | Boston EMA (temporal knowledge) | 14 | 640 | 13 | 14 | 0.929 | 46% | WARN |
+| GRASP-FCI | PAG | Boston EMA (temporal knowledge) | 14 | 640 | 14 | 13 | 0.929 | 46% | WARN |
 
 ---
 
@@ -83,48 +83,8 @@ is respected throughout. `<->` (bidirected) edges for current-lag pairs are **no
 | chain (X->Y->Z) | 3 | 3000 | 2 | 2 | 1.000 | 100% |
 | collider (X->Z<-Y) | 3 | 3000 | 2 | 2 | 1.000 | 100% |
 | latent (L->X, L->Y, X->Z) | 3 | 3000 | 2 | 2 | 1.000 | 100% |
-| medium DAG + 2 latents | 8 | 2000 | 10 | 10 | 1.000 | 70% |
+| medium DAG + 2 latents | 8 | 2000 | 10 | 10 | 1.000 | 100% |
 | Boston EMA (temporal knowledge) | 14 | 640 | 14 | 15 | 0.933 | 79% |
-
-**GFCI — medium DAG + 2 latents discrepancies:**
-
-| Java | C++ | Pattern |
-|------|-----|---------|
-| `X3 o-> X5` | `X3 --> X5` | `o->` (Java) vs `-->` (C++): partial to full orientation |
-| `X3 o-> X8` | `X3 --> X8` | `o->` (Java) vs `-->` (C++): partial to full orientation |
-| `X4 o-> X6` | `X4 --> X6` | `o->` (Java) vs `-->` (C++): partial to full orientation |
-
-<details>
-<summary>Full edge lists</summary>
-
-Java edges:
-```
-X1 o-> X5
-X1 o-o X3
-X2 o-> X5
-X2 o-> X6
-X2 o-> X8
-X3 o-> X5
-X3 o-> X8
-X3 o-o X4
-X4 o-> X6
-X7 o-> X5
-```
-
-C++ edges:
-```
-X1 o-> X5
-X1 o-o X3
-X2 o-> X5
-X2 o-> X6
-X2 o-> X8
-X3 --> X5
-X3 --> X8
-X3 o-o X4
-X4 --> X6
-X7 o-> X5
-```
-</details>
 
 **GFCI — Boston EMA (temporal knowledge) discrepancies:**
 
@@ -185,40 +145,36 @@ worry_scale_lag --> worry_scale
 |---------|------|-----|------|-----|-------------|------------|
 | chain (X->Y->Z) | 3 | 3000 | 2 | 2 | 1.000 | 100% |
 | latent (L->X, L->Y, X->Z) | 3 | 3000 | 2 | 2 | 1.000 | 100% |
-| Boston EMA (temporal knowledge) | 14 | 640 | 15 | 16 | 0.938 | 67% |
+| Boston EMA (temporal knowledge) | 14 | 640 | 15 | 16 | 0.938 | 93% |
 
 **BOSS-FCI — Boston EMA (temporal knowledge) discrepancies:**
 
 | Java | C++ | Pattern |
 |------|-----|---------|
-| `PANAS_NA_lag o-> PANAS_NA` | `PANAS_NA <-> PANAS_NA_lag` | `o->` (Java) vs `<->` (C++): bidirected over-orientation |
-| `PANAS_NA --> PHQ9` | `PHQ9 --> PANAS_NA` | `-->` direction reversal |
-| `PANAS_NA_lag o-o PHQ9_lag` | `PHQ9_lag o-> PANAS_NA_lag` | `o-o` (Java) vs `o->` (C++): nondirected partially oriented |
-| `PANAS_NA_lag o-o worry_scale_lag` | `PANAS_NA_lag --> worry_scale_lag` | `o-o` (Java) vs `-->` (C++) |
-| `PHQ9_lag --> PHQ9` | `PHQ9_lag o-> PHQ9` | `-->` (Java) vs `o->` (C++) |
+| `worry_scale_lag o-> worry_scale` | `worry_scale_lag --> worry_scale` | `o->` (Java) vs `-->` (C++): partial to full orientation |
 
-C++ finds extra adjacencies: `PANAS_NA_lag — PHQ9`.
+C++ finds extra adjacencies: `PANAS_NA_lag — worry_scale_lag`.
 
 <details>
 <summary>Full edge lists</summary>
 
 Java edges:
 ```
-PANAS_NA --> PHQ9
 PANAS_NA --> worry_scale
-PANAS_NA_lag o-> PANAS_NA
-PANAS_NA_lag o-o PHQ9_lag
-PANAS_NA_lag o-o worry_scale_lag
+PANAS_NA <-> PANAS_NA_lag
 PANAS_PA <-> PANAS_PA_lag
+PHQ9 --> PANAS_NA
 PHQ9 --> PANAS_PA
-PHQ9_lag --> PHQ9
+PHQ9 <-> PANAS_NA_lag
+PHQ9_lag o-> PANAS_NA_lag
 PHQ9_lag o-> PANAS_PA_lag
+PHQ9_lag o-> PHQ9
 TIB <-> TIB_lag
 TST --> TIB
 TST_lag o-> TIB_lag
 TST_lag o-> TST
 alcohol_bev_lag o-> alcohol_bev
-worry_scale_lag --> worry_scale
+worry_scale_lag o-> worry_scale
 ```
 
 C++ edges:
@@ -250,7 +206,7 @@ worry_scale_lag --> worry_scale
 |---------|------|-----|------|-----|-------------|------------|
 | chain (X->Y->Z) | 3 | 3000 | 2 | 2 | 1.000 | 100% |
 | latent (L->X, L->Y, X->Z) | 3 | 3000 | 2 | 2 | 1.000 | 100% |
-| Boston EMA (temporal knowledge) | 14 | 640 | 13 | 14 | 0.929 | 46% |
+| Boston EMA (temporal knowledge) | 14 | 640 | 14 | 13 | 0.929 | 46% |
 
 **GRASP-FCI — Boston EMA (temporal knowledge) discrepancies:**
 
@@ -264,7 +220,7 @@ worry_scale_lag --> worry_scale
 | `TIB_lag o-o TST_lag` | `TIB_lag o-> TST_lag` | `o-o` (Java) vs `o->` (C++): nondirected partially oriented |
 | `TST_lag o-> TST` | `TST <-> TST_lag` | `o->` (Java) vs `<->` (C++): bidirected over-orientation |
 
-C++ finds extra adjacencies: `PANAS_NA — worry_scale`.
+Java finds extra adjacencies: `PANAS_NA — worry_scale`.
 
 <details>
 <summary>Full edge lists</summary>
@@ -272,6 +228,7 @@ C++ finds extra adjacencies: `PANAS_NA — worry_scale`.
 Java edges:
 ```
 PANAS_NA --> PHQ9
+PANAS_NA --> worry_scale
 PANAS_NA <-> PANAS_NA_lag
 PANAS_PA <-> PHQ9
 PANAS_PA_lag o-> PANAS_PA
@@ -289,7 +246,6 @@ worry_scale_lag o-> worry_scale
 C++ edges:
 ```
 PANAS_NA --> PHQ9
-PANAS_NA --> worry_scale
 PANAS_NA <-> PANAS_NA_lag
 PANAS_PA --> PHQ9
 PANAS_PA_lag o-> PANAS_PA

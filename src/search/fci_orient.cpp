@@ -26,31 +26,21 @@ static bool existsUncoveredSemiDirectedPath(
     const NodePtr& to,
     const NodePtr& prevOfFrom)
 {
-    // BFS over (current, predecessor) pairs so we can check the uncovered
-    // constraint at each step.
-    using StatePair = std::pair<NodePtr, NodePtr>;
-
-    struct PairHash {
-        size_t operator()(const StatePair& p) const {
-            size_t h1 = p.first  ? std::hash<NodePtr>{}(p.first)  : 0;
-            size_t h2 = p.second ? std::hash<NodePtr>{}(p.second) : 0;
-            return h1 ^ (h2 * 2654435761u);
-        }
-    };
-    struct PairEq {
-        bool operator()(const StatePair& a, const StatePair& b) const {
-            bool firstEq  = (!a.first  && !b.first)  || (a.first  && b.first  && *a.first  == *b.first);
-            bool secondEq = (!a.second && !b.second) || (a.second && b.second && *a.second == *b.second);
-            return firstEq && secondEq;
-        }
-    };
+    // Matches Java's R5R9Dijkstra: each node is visited (settled) at most once.
+    // Uses a single predecessor per node, like Dijkstra with a simple visited set.
+    // This is less thorough than tracking (node, predecessor) pairs but matches
+    // Java's behavior where a node settled via one path is never revisited.
+    using StatePair = std::pair<NodePtr, NodePtr>;  // (current, predecessor)
 
     std::queue<StatePair> Q;
-    std::unordered_set<StatePair, PairHash, PairEq> visited;
+    std::unordered_set<std::string> visited;  // settled nodes (by name)
 
-    StatePair init = {from, prevOfFrom};
-    Q.push(init);
-    visited.insert(init);
+    Q.push({from, prevOfFrom});
+    visited.insert(from->getName());
+    // Prevent the path from cycling back through the origin node (prevOfFrom).
+    // Java's Dijkstra achieves this implicitly: the origin is at distance 0 and
+    // can never be relaxed to a longer distance.
+    if (prevOfFrom) visited.insert(prevOfFrom->getName());
 
     while (!Q.empty()) {
         auto [curr, prev] = Q.front(); Q.pop();
@@ -65,10 +55,9 @@ static bool existsUncoveredSemiDirectedPath(
 
             if (*next == *to) return true;
 
-            StatePair nextState = {next, curr};
-            if (!visited.count(nextState)) {
-                visited.insert(nextState);
-                Q.push(nextState);
+            if (!visited.count(next->getName())) {
+                visited.insert(next->getName());
+                Q.push({next, curr});
             }
         }
     }

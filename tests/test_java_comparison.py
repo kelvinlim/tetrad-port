@@ -461,3 +461,17 @@ class TestBostonKnowledgeComparison:
         java = oracle.run("grasp_fci", df, alpha=0.01, penalty_discount=1.0, knowledge=kn_java)
         cpp_r, _ = cpp.run_grasp_fci(df, alpha=0.01, penalty_discount=1.0, knowledge=kn)
         assert_similarity("grasp_fci/boston", java, cpp_r["edges"], min_jaccard=0.85, min_type_agree=0.40)
+
+
+# ---------------------------------------------------------------------------
+# Report generation — runs last, regenerates JavaCPPComparison.md
+# ---------------------------------------------------------------------------
+
+@needs_java
+@pytest.mark.skipif(not _BOSTON_CSV.exists(), reason="Boston data not found in tests/data/")
+class TestGenerateReport:
+    """Regenerate JavaCPPComparison.md after all comparison tests pass."""
+
+    def test_generate_comparison_report(self):
+        from generate_comparison_report import generate_report
+        generate_report()

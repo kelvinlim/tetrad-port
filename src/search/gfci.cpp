@@ -146,7 +146,16 @@ static std::vector<NodePtr> computePossibleDsep(const Graph& graph,
     }
 
     msep.erase(x);
-    return std::vector<NodePtr>(msep.begin(), msep.end());
+
+    // Java sorts the result reverse-alphabetically (Collections.sort + reverse).
+    // The ordering matters because SublistGenerator enumerates subsets in index
+    // order and the first separating set found wins.
+    std::vector<NodePtr> result(msep.begin(), msep.end());
+    std::sort(result.begin(), result.end(),
+              [](const NodePtr& a, const NodePtr& b) {
+                  return a->getName() > b->getName();  // descending (reverse alpha)
+              });
+    return result;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -216,7 +225,7 @@ Graph Gfci::search() {
     orientCollidersFromCpdag(pag, cpdag, nodes, sepsetMap, unshieldedColliders);
 
     // Step 6: Possible d-sep removal
-    // Take a snapshot so removals during the loop don't affect iteration.
+    // Matches Java's Gfci.java: try possibleDsep from a first, then from c.
     auto pagEdges = pag.getEdges();
     for (const auto& edge : pagEdges) {
         const auto& a = edge.getNode1();
@@ -357,6 +366,9 @@ std::set<NodePtr>* Gfci::findSepsetFromList(const Graph& graph, const NodePtr& x
     int depthLimit = (maxDepth < 0) ? static_cast<int>(candidates.size())
                                     : std::min(maxDepth, static_cast<int>(candidates.size()));
 
+    // Matches Java's Gfci.getSepset: enumerate all subsets via SublistGenerator,
+    // return first that yields independence. No size or adj-subset filters
+    // (those are only in Paths.removeByPossibleDsep, which GFCI doesn't use).
     SublistGenerator gen(static_cast<int>(candidates.size()), depthLimit);
     bool valid;
     while (true) {
