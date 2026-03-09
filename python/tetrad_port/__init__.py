@@ -16,7 +16,7 @@ with a simple facade API:
 
 from __future__ import annotations
 
-from typing import Any, Optional
+from typing import Any, Optional, Union
 
 import numpy as np
 import pandas as pd
@@ -27,8 +27,53 @@ from tetrad_port._tetrad_cpp import (
     PcResult, SearchResult, Knowledge,
 )
 
-__version__ = "0.1.0"
-__all__ = ["TetradPort", "Knowledge"]
+__version__ = "0.2.1"
+__all__ = ["TetradPort", "Knowledge", "dict_to_knowledge"]
+
+ALGORITHMS = ("pc", "fges", "gfci", "boss", "boss_fci", "grasp", "grasp_fci")
+
+
+def dict_to_knowledge(knowledge_dict: Optional[dict]) -> Optional[Knowledge]:
+    """
+    Convert a knowledge dict to a C++ Knowledge object.
+
+    Parameters
+    ----------
+    knowledge_dict : dict or None
+        Knowledge dict with optional keys:
+
+        - ``'addtemporal'``: ``{tier_int: [var_names]}`` — temporal tiers
+        - ``'forbiddirect'``: ``[(from_var, to_var), ...]`` — forbidden edges
+        - ``'requiredirect'``: ``[(from_var, to_var), ...]`` — required edges
+        - ``'forbidden_within'``: ``{tier_int, ...}`` — forbid edges within tier
+
+    Returns
+    -------
+    Knowledge or None
+    """
+    if knowledge_dict is None:
+        return None
+
+    k = Knowledge()
+
+    if "addtemporal" in knowledge_dict:
+        forbidden_within = knowledge_dict.get("forbidden_within", set())
+        for tier, variables in knowledge_dict["addtemporal"].items():
+            tier_int = int(tier)
+            for var in variables:
+                k.add_to_tier(tier_int, var)
+            if tier_int in forbidden_within:
+                k.set_tier_forbidden_within(tier_int, True)
+
+    if "forbiddirect" in knowledge_dict:
+        for from_var, to_var in knowledge_dict["forbiddirect"]:
+            k.set_forbidden(from_var, to_var)
+
+    if "requiredirect" in knowledge_dict:
+        for from_var, to_var in knowledge_dict["requiredirect"]:
+            k.set_required(from_var, to_var)
+
+    return k
 
 
 class TetradPort:
@@ -60,6 +105,59 @@ class TetradPort:
         self.verbose = verbose
 
     # ----------------------------------------------------------------
+    # Core: run (dispatcher)
+    # ----------------------------------------------------------------
+
+    def run(
+        self,
+        df: pd.DataFrame,
+        algorithm: str = "gfci",
+        knowledge: Union[Knowledge, dict, None] = None,
+        **kwargs,
+    ) -> tuple[dict[str, Any], dict[str, Any]]:
+        """
+        Run a causal discovery algorithm by name.
+
+        Parameters
+        ----------
+        df : pd.DataFrame
+            Continuous data. All columns must be numeric.
+        algorithm : str
+            One of "pc", "fges", "gfci", "boss", "boss_fci", "grasp",
+            "grasp_fci".
+        knowledge : Knowledge, dict, or None
+            Background knowledge. Can be a C++ Knowledge object or a dict
+            with keys 'addtemporal', 'forbiddirect', 'requiredirect'.
+        **kwargs
+            Algorithm-specific parameters (alpha, penalty_discount, etc.).
+
+        Returns
+        -------
+        results : dict
+            Search results including edges, nodes, counts.
+        graph_info : dict
+            Parsed edge information (adjacency, directed_edges, etc.)
+        """
+        dispatch = {
+            "pc": self.run_pc,
+            "fges": self.run_fges,
+            "gfci": self.run_gfci,
+            "boss": self.run_boss,
+            "boss_fci": self.run_boss_fci,
+            "grasp": self.run_grasp,
+            "grasp_fci": self.run_grasp_fci,
+        }
+
+        algo = algorithm.lower()
+        if algo not in dispatch:
+            raise ValueError(
+                f"Unknown algorithm: {algorithm!r}. "
+                f"Must be one of {ALGORITHMS}."
+            )
+
+        return dispatch[algo](df, knowledge=knowledge, **kwargs)
+
+    # ----------------------------------------------------------------
     # Core: run_pc
     # ----------------------------------------------------------------
 
@@ -68,7 +166,7 @@ class TetradPort:
         df: pd.DataFrame,
         alpha: float = 0.05,
         depth: int = -1,
-        knowledge: Optional[Knowledge] = None,
+        knowledge: Union[Knowledge, dict, None] = None,
         verbose: Optional[bool] = None,
     ) -> tuple[dict[str, Any], dict[str, Any]]:
         """
@@ -86,8 +184,9 @@ class TetradPort:
             Significance level for conditional independence tests.
         depth : int
             Maximum size of conditioning sets. -1 for no limit.
-        knowledge : Knowledge or None
-            Background knowledge (temporal tiers, forbidden/required edges).
+        knowledge : Knowledge, dict, or None
+            Background knowledge. Can be a C++ Knowledge object or a dict
+            with keys 'addtemporal', 'forbiddirect', 'requiredirect'.
         verbose : bool or None
             Override instance-level verbose setting.
 
@@ -104,7 +203,7 @@ class TetradPort:
         """
         v = verbose if verbose is not None else self.verbose
         data, col_names = self._validate_and_extract(df)
-        k = knowledge if knowledge is not None else Knowledge()
+        k = self._resolve_knowledge(knowledge)
 
         pc_result: PcResult = run_pc_raw(
             data=data, col_names=col_names,
@@ -134,7 +233,7 @@ class TetradPort:
         penalty_discount: float = 1.0,
         faithfulness_assumed: bool = True,
         max_degree: int = -1,
-        knowledge: Optional[Knowledge] = None,
+        knowledge: Union[Knowledge, dict, None] = None,
         verbose: Optional[bool] = None,
     ) -> tuple[dict[str, Any], dict[str, Any]]:
         """
@@ -157,8 +256,9 @@ class TetradPort:
             If True, skips the unfaithfulness phase (faster). Default True.
         max_degree : int
             Maximum node degree in the output graph. -1 for unlimited.
-        knowledge : Knowledge or None
-            Background knowledge (temporal tiers, forbidden/required edges).
+        knowledge : Knowledge, dict, or None
+            Background knowledge. Can be a C++ Knowledge object or a dict
+            with keys 'addtemporal', 'forbiddirect', 'requiredirect'.
         verbose : bool or None
             Override instance-level verbose setting.
 
@@ -172,7 +272,7 @@ class TetradPort:
         """
         v = verbose if verbose is not None else self.verbose
         data, col_names = self._validate_and_extract(df)
-        k = knowledge if knowledge is not None else Knowledge()
+        k = self._resolve_knowledge(knowledge)
 
         fges_result: SearchResult = run_fges_raw(
             data=data, col_names=col_names,
@@ -208,7 +308,7 @@ class TetradPort:
         complete_rule_set: bool = True,
         max_disc_path_length: int = -1,
         faithfulness_assumed: bool = True,
-        knowledge: Optional[Knowledge] = None,
+        knowledge: Union[Knowledge, dict, None] = None,
         verbose: Optional[bool] = None,
     ) -> tuple[dict[str, Any], dict[str, Any]]:
         """
@@ -243,8 +343,9 @@ class TetradPort:
             Maximum discriminating path length for R4. -1 for unlimited.
         faithfulness_assumed : bool
             Faithfulness assumption for the FGES phase.
-        knowledge : Knowledge or None
-            Background knowledge (temporal tiers, forbidden/required edges).
+        knowledge : Knowledge, dict, or None
+            Background knowledge. Can be a C++ Knowledge object or a dict
+            with keys 'addtemporal', 'forbiddirect', 'requiredirect'.
         verbose : bool or None
             Override instance-level verbose setting.
 
@@ -260,7 +361,7 @@ class TetradPort:
         """
         v = verbose if verbose is not None else self.verbose
         data, col_names = self._validate_and_extract(df)
-        k = knowledge if knowledge is not None else Knowledge()
+        k = self._resolve_knowledge(knowledge)
 
         gfci_result: SearchResult = run_gfci_raw(
             data=data, col_names=col_names,
@@ -295,7 +396,7 @@ class TetradPort:
         use_bes: bool = False,
         num_starts: int = 1,
         use_data_order: bool = True,
-        knowledge: Optional[Knowledge] = None,
+        knowledge: Union[Knowledge, dict, None] = None,
         verbose: Optional[bool] = None,
     ) -> tuple[dict[str, Any], dict[str, Any]]:
         """
@@ -322,8 +423,9 @@ class TetradPort:
             Number of random restarts. Best-scoring result is returned.
         use_data_order : bool
             Use data column order for the first run. Default True.
-        knowledge : Knowledge or None
-            Background knowledge (temporal tiers, forbidden/required edges).
+        knowledge : Knowledge, dict, or None
+            Background knowledge. Can be a C++ Knowledge object or a dict
+            with keys 'addtemporal', 'forbiddirect', 'requiredirect'.
         verbose : bool or None
             Override instance-level verbose setting.
 
@@ -337,7 +439,7 @@ class TetradPort:
         """
         v = verbose if verbose is not None else self.verbose
         data, col_names = self._validate_and_extract(df)
-        k = knowledge if knowledge is not None else Knowledge()
+        k = self._resolve_knowledge(knowledge)
 
         boss_result: SearchResult = run_boss_raw(
             data=data, col_names=col_names,
@@ -372,7 +474,7 @@ class TetradPort:
         max_disc_path_length: int = -1,
         use_bes: bool = False,
         num_starts: int = 1,
-        knowledge: Optional[Knowledge] = None,
+        knowledge: Union[Knowledge, dict, None] = None,
         verbose: Optional[bool] = None,
     ) -> tuple[dict[str, Any], dict[str, Any]]:
         """
@@ -400,8 +502,9 @@ class TetradPort:
             Run BES refinement in BOSS (default False).
         num_starts : int
             Number of random restarts for BOSS (default 1).
-        knowledge : Knowledge or None
-            Background knowledge (temporal tiers, forbidden/required edges).
+        knowledge : Knowledge, dict, or None
+            Background knowledge. Can be a C++ Knowledge object or a dict
+            with keys 'addtemporal', 'forbiddirect', 'requiredirect'.
         verbose : bool or None
             Override instance-level verbose setting.
 
@@ -417,7 +520,7 @@ class TetradPort:
         """
         v = verbose if verbose is not None else self.verbose
         data, col_names = self._validate_and_extract(df)
-        k = knowledge if knowledge is not None else Knowledge()
+        k = self._resolve_knowledge(knowledge)
 
         bfci_result: SearchResult = run_boss_fci_raw(
             data=data, col_names=col_names,
@@ -454,7 +557,7 @@ class TetradPort:
         ordered: bool = False,
         num_starts: int = 1,
         use_data_order: bool = True,
-        knowledge: Optional[Knowledge] = None,
+        knowledge: Union[Knowledge, dict, None] = None,
         verbose: Optional[bool] = None,
     ) -> tuple[dict[str, Any], dict[str, Any]]:
         """
@@ -482,8 +585,9 @@ class TetradPort:
             Number of random restarts. Best result is returned.
         use_data_order : bool
             Use data column order for the first run (default True).
-        knowledge : Knowledge or None
-            Background knowledge (temporal tiers, forbidden/required edges).
+        knowledge : Knowledge, dict, or None
+            Background knowledge. Can be a C++ Knowledge object or a dict
+            with keys 'addtemporal', 'forbiddirect', 'requiredirect'.
         verbose : bool or None
             Override instance-level verbose setting.
 
@@ -497,7 +601,7 @@ class TetradPort:
         """
         v = verbose if verbose is not None else self.verbose
         data, col_names = self._validate_and_extract(df)
-        k = knowledge if knowledge is not None else Knowledge()
+        k = self._resolve_knowledge(knowledge)
 
         grasp_result: SearchResult = run_grasp_raw(
             data=data, col_names=col_names,
@@ -538,7 +642,7 @@ class TetradPort:
         max_disc_path_length: int = -1,
         num_starts: int = 1,
         use_data_order: bool = True,
-        knowledge: Optional[Knowledge] = None,
+        knowledge: Union[Knowledge, dict, None] = None,
         verbose: Optional[bool] = None,
     ) -> tuple[dict[str, Any], dict[str, Any]]:
         """
@@ -573,8 +677,9 @@ class TetradPort:
             Number of random restarts for GRaSP (default 1).
         use_data_order : bool
             Use data column order for the first run (default True).
-        knowledge : Knowledge or None
-            Background knowledge (temporal tiers, forbidden/required edges).
+        knowledge : Knowledge, dict, or None
+            Background knowledge. Can be a C++ Knowledge object or a dict
+            with keys 'addtemporal', 'forbiddirect', 'requiredirect'.
         verbose : bool or None
             Override instance-level verbose setting.
 
@@ -590,7 +695,7 @@ class TetradPort:
         """
         v = verbose if verbose is not None else self.verbose
         data, col_names = self._validate_and_extract(df)
-        k = knowledge if knowledge is not None else Knowledge()
+        k = self._resolve_knowledge(knowledge)
 
         gfci_result: SearchResult = run_grasp_fci_raw(
             data=data, col_names=col_names,
@@ -799,9 +904,13 @@ class TetradPort:
     def create_lag_knowledge(
         columns: list[str],
         lag_stub: str = "_lag",
-    ) -> dict:
+        as_dict: bool = False,
+    ) -> Union[Knowledge, dict]:
         """
-        Create a temporal knowledge dict for lagged data.
+        Create temporal knowledge for lagged data.
+
+        Lag variables (tier 0) can only be parents of current-day
+        variables (tier 1), never the other way around.
 
         Parameters
         ----------
@@ -809,19 +918,35 @@ class TetradPort:
             Original (non-lagged) column names.
         lag_stub : str
             The suffix used for lagged columns.
+        as_dict : bool
+            If True, return a plain dict instead of a Knowledge object.
 
         Returns
         -------
-        dict
-            Knowledge dict with 'addtemporal' key, compatible with
-            the FastCDA knowledge format.
+        Knowledge or dict
+            Knowledge object (default) or dict with 'addtemporal' key.
         """
         lag_cols = [f"{c}{lag_stub}" for c in columns]
-        return {"addtemporal": {0: lag_cols, 1: list(columns)}}
+        d = {"addtemporal": {0: lag_cols, 1: list(columns)}}
+        if as_dict:
+            return d
+        return dict_to_knowledge(d)
 
     # ----------------------------------------------------------------
     # Internal helpers
     # ----------------------------------------------------------------
+
+    @staticmethod
+    def _resolve_knowledge(
+        knowledge: Union[Knowledge, dict, None],
+    ) -> Knowledge:
+        """Convert knowledge arg to a C++ Knowledge object."""
+        if knowledge is None:
+            return Knowledge()
+        if isinstance(knowledge, dict):
+            result = dict_to_knowledge(knowledge)
+            return result if result is not None else Knowledge()
+        return knowledge
 
     @staticmethod
     def _validate_and_extract(df: pd.DataFrame) -> tuple[np.ndarray, list[str]]:
@@ -849,7 +974,7 @@ class TetradPort:
         directed_edges: list[tuple[str, str]] = []
         undirected_edges: list[tuple[str, str]] = []
         bidirected_edges: list[tuple[str, str]] = []
-        partially_oriented_edges: list[tuple[str, str, str]] = []
+        partially_oriented_edges: list[tuple[str, str]] = []
         circle_edges: list[tuple[str, str]] = []
 
         for edge_str in edges:
@@ -873,7 +998,7 @@ class TetradPort:
             elif edge_type == "<->":
                 bidirected_edges.append((node1, node2))
             elif edge_type == "o->":
-                partially_oriented_edges.append((node1, edge_type, node2))
+                partially_oriented_edges.append((node1, node2))
             elif edge_type == "o-o":
                 circle_edges.append((node1, node2))
 

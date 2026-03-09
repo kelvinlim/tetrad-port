@@ -3,7 +3,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from tetrad_port import TetradPort
+from tetrad_port import TetradPort, Knowledge, dict_to_knowledge
 
 
 @pytest.fixture
@@ -253,10 +253,82 @@ class TestDataHelpers:
         assert "A_lag2" in result.columns
         assert len(result) == 8  # 10 - 2 NaN rows dropped
 
-    def test_create_lag_knowledge(self):
+    def test_create_lag_knowledge_returns_knowledge(self):
         knowledge = TetradPort.create_lag_knowledge(["X", "Y", "Z"])
+        assert isinstance(knowledge, Knowledge)
+
+    def test_create_lag_knowledge_as_dict(self):
+        knowledge = TetradPort.create_lag_knowledge(["X", "Y", "Z"], as_dict=True)
+        assert isinstance(knowledge, dict)
         assert "addtemporal" in knowledge
         assert 0 in knowledge["addtemporal"]
         assert 1 in knowledge["addtemporal"]
         assert "X_lag" in knowledge["addtemporal"][0]
         assert "X" in knowledge["addtemporal"][1]
+
+
+# ----------------------------------------------------------------
+# run() dispatcher tests
+# ----------------------------------------------------------------
+
+
+class TestRunDispatcher:
+    def test_run_pc(self, tp, chain_data):
+        results, graph_info = tp.run(chain_data, algorithm="pc", alpha=0.05)
+        assert results["num_edges"] == 2
+        assert set(results["nodes"]) == {"X", "Y", "Z"}
+
+    def test_run_fges(self, tp, chain_data):
+        results, graph_info = tp.run(chain_data, algorithm="fges")
+        assert results["num_edges"] == 2
+
+    def test_run_gfci(self, tp, chain_data):
+        results, graph_info = tp.run(chain_data, algorithm="gfci", alpha=0.05)
+        assert results["num_edges"] == 2
+
+    def test_run_unknown_algorithm(self, tp, chain_data):
+        with pytest.raises(ValueError, match="Unknown algorithm"):
+            tp.run(chain_data, algorithm="unknown")
+
+    def test_run_case_insensitive(self, tp, chain_data):
+        results, _ = tp.run(chain_data, algorithm="PC", alpha=0.05)
+        assert results["num_edges"] == 2
+
+
+# ----------------------------------------------------------------
+# Dict knowledge tests
+# ----------------------------------------------------------------
+
+
+class TestDictKnowledge:
+    def test_dict_to_knowledge(self):
+        d = {"addtemporal": {0: ["X_lag"], 1: ["X"]}}
+        k = dict_to_knowledge(d)
+        assert isinstance(k, Knowledge)
+
+    def test_dict_to_knowledge_none(self):
+        assert dict_to_knowledge(None) is None
+
+    def test_run_with_dict_knowledge(self, tp, chain_data):
+        # Dict knowledge with forbidden edge should affect results
+        k_dict = {"forbiddirect": [("X", "Y")]}
+        results, _ = tp.run(chain_data, algorithm="pc", alpha=0.05, knowledge=k_dict)
+        # X --> Y should be forbidden
+        assert "X --> Y" not in results["edges"]
+
+    def test_run_with_knowledge_object(self, tp, chain_data):
+        k = Knowledge()
+        results, _ = tp.run(chain_data, algorithm="pc", alpha=0.05, knowledge=k)
+        assert results["num_edges"] == 2
+
+
+# ----------------------------------------------------------------
+# PAG edge type consistency tests
+# ----------------------------------------------------------------
+
+
+class TestPagEdgeTypes:
+    def test_partially_oriented_edges_are_tuples_of_two(self, tp, latent_common_cause_data):
+        _, graph_info = tp.run(latent_common_cause_data, algorithm="gfci", alpha=0.05)
+        for edge in graph_info["partially_oriented_edges"]:
+            assert len(edge) == 2, f"Expected 2-tuple, got {edge}"
