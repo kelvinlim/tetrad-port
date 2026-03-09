@@ -252,6 +252,8 @@ for algo in ["pc", "fges", "boss", "grasp"]:
                        lambda: (_make_collider(),), base_kwargs))
     TESTS.append((algo, "Medium DAG (8 vars)", "Random DAG, 8 observed vars, n=2000",
                    lambda: (_make_dag(8, n_hidden=0, seed=10),), base_kwargs))
+    TESTS.append((algo, "Boston EMA (14 vars, knowledge)", "Real EMA data with temporal tiers",
+                   _make_boston_lagged, base_kwargs))
 
 for algo in ["gfci", "boss_fci", "grasp_fci"]:
     base_kwargs = {"alpha": 0.01, "penalty_discount": 1.0}
@@ -572,7 +574,7 @@ def generate_report():
     L.append("# Regenerate this report")
     L.append(".venv/bin/python tests/generate_comparison_report.py")
     L.append("")
-    L.append("# All 21 Java vs C++ comparison tests")
+    L.append("# All Java vs C++ comparison tests")
     L.append("pytest tests/test_java_comparison.py -v")
     L.append("")
     L.append("# Only Boston real-world tests")

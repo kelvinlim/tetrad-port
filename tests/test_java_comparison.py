@@ -444,6 +444,33 @@ class TestBostonKnowledgeComparison:
     def boston(self):
         return _make_boston_lagged()
 
+    def test_pc_boston(self, oracle, cpp, boston):
+        df, kn, kn_java = boston
+        java = oracle.run("pc", df, alpha=0.01, knowledge=kn_java)
+        cpp_r, _ = cpp.run_pc(df, alpha=0.01, knowledge=kn)
+        # One Meek rule orientation can differ due to adjacency list ordering
+        assert_similarity("pc/boston", java, cpp_r["edges"], min_jaccard=1.0, min_type_agree=0.90)
+
+    def test_fges_boston(self, oracle, cpp, boston):
+        df, kn, kn_java = boston
+        java = oracle.run("fges", df, penalty_discount=1.0, knowledge=kn_java)
+        cpp_r, _ = cpp.run_fges(df, penalty_discount=1.0, knowledge=kn)
+        assert_similarity("fges/boston", java, cpp_r["edges"], min_jaccard=1.0, min_type_agree=1.0)
+
+    def test_boss_boston(self, oracle, cpp, boston):
+        df, kn, kn_java = boston
+        java = oracle.run("boss", df, penalty_discount=1.0, knowledge=kn_java)
+        cpp_r, _ = cpp.run_boss(df, penalty_discount=1.0, knowledge=kn)
+        # BOSS uses random permutations — Java results can vary between runs.
+        assert_similarity("boss/boston", java, cpp_r["edges"], min_jaccard=0.65, min_type_agree=0.60)
+
+    def test_grasp_boston(self, oracle, cpp, boston):
+        df, kn, kn_java = boston
+        java = oracle.run("grasp", df, penalty_discount=1.0, knowledge=kn_java)
+        cpp_r, _ = cpp.run_grasp(df, penalty_discount=1.0, knowledge=kn)
+        # GRaSP uses randomized DFS — Java results can vary between runs.
+        assert_similarity("grasp/boston", java, cpp_r["edges"], min_jaccard=0.65, min_type_agree=0.60)
+
     def test_gfci_boston(self, oracle, cpp, boston):
         df, kn, kn_java = boston
         java = oracle.run("gfci", df, alpha=0.01, penalty_discount=1.0, knowledge=kn_java)
