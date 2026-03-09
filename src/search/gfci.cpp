@@ -2,6 +2,7 @@
 #include "search/fges.h"
 #include "search/fci_orient.h"
 #include "util/choice_generator.h"
+#include "util/java_hash.h"
 #include "util/sublist_generator.h"
 #include <algorithm>
 #include <queue>
@@ -178,6 +179,7 @@ Graph Gfci::search() {
 
     // Step 3: Extra edge removal
     auto edges = pag.getEdges();
+    sortEdgesByJavaHashOrder(edges, static_cast<int>(edges.size()));
     for (const auto& edge : edges) {
         const auto& a = edge.getNode1();
         const auto& c = edge.getNode2();
@@ -227,6 +229,7 @@ Graph Gfci::search() {
     // Step 6: Possible d-sep removal
     // Matches Java's Gfci.java: try possibleDsep from a first, then from c.
     auto pagEdges = pag.getEdges();
+    sortEdgesByJavaHashOrder(pagEdges, static_cast<int>(pagEdges.size()));
     for (const auto& edge : pagEdges) {
         const auto& a = edge.getNode1();
         const auto& c = edge.getNode2();
@@ -308,6 +311,11 @@ std::set<NodePtr>* Gfci::findSepset(const Graph& graph, const NodePtr& x, const 
         [](const NodePtr& n) { return n->getNodeType() == NodeType::LATENT; }), adjX.end());
     adjY.erase(std::remove_if(adjY.begin(), adjY.end(),
         [](const NodePtr& n) { return n->getNodeType() == NodeType::LATENT; }), adjY.end());
+
+    // Sort adjacency lists into Java's HashSet<Node> iteration order so that
+    // SublistGenerator produces the same first-found separating set as Java.
+    sortByJavaHashOrder(adjX, x);
+    sortByJavaHashOrder(adjY, y);
 
     int maxDepth = depth_;
 

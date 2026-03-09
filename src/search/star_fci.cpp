@@ -1,6 +1,7 @@
 #include "search/star_fci.h"
 #include "search/fci_orient.h"
 #include "util/choice_generator.h"
+#include "util/java_hash.h"
 #include "util/sublist_generator.h"
 #include <algorithm>
 
@@ -111,6 +112,11 @@ std::set<NodePtr>* StarFci::findSepset(const Graph& graph, const NodePtr& x, con
         [](const NodePtr& n) { return n->getNodeType() == NodeType::LATENT; }), adjX.end());
     adjY.erase(std::remove_if(adjY.begin(), adjY.end(),
         [](const NodePtr& n) { return n->getNodeType() == NodeType::LATENT; }), adjY.end());
+
+    // Sort adjacency lists into Java's HashSet<Node> iteration order so that
+    // SublistGenerator produces the same first-found separating set as Java.
+    sortByJavaHashOrder(adjX, x);
+    sortByJavaHashOrder(adjY, y);
 
     int maxDepth = depth_;
 
