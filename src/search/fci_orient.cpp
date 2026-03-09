@@ -8,6 +8,74 @@
 
 namespace tetrad {
 
+// ─────────────────────────────────────────────────────────────────────────────
+// File-scope helpers for R9
+// ─────────────────────────────────────────────────────────────────────────────
+
+// Returns true if an uncovered semi-directed path exists from `from` to `to`,
+// where `prevOfFrom` is the node preceding `from` on the path (needed to check
+// the first triple for the uncovered constraint).
+//
+// "Uncovered" means: for every consecutive triple (prev, curr, next) on the
+// path, prev and next must NOT be adjacent.
+//
+// Matches Java's R5R9Dijkstra with Rule.R9 and uncovered=true.
+static bool existsUncoveredSemiDirectedPath(
+    const Graph& graph,
+    const NodePtr& from,
+    const NodePtr& to,
+    const NodePtr& prevOfFrom)
+{
+    // BFS over (current, predecessor) pairs so we can check the uncovered
+    // constraint at each step.
+    using StatePair = std::pair<NodePtr, NodePtr>;
+
+    struct PairHash {
+        size_t operator()(const StatePair& p) const {
+            size_t h1 = p.first  ? std::hash<NodePtr>{}(p.first)  : 0;
+            size_t h2 = p.second ? std::hash<NodePtr>{}(p.second) : 0;
+            return h1 ^ (h2 * 2654435761u);
+        }
+    };
+    struct PairEq {
+        bool operator()(const StatePair& a, const StatePair& b) const {
+            bool firstEq  = (!a.first  && !b.first)  || (a.first  && b.first  && *a.first  == *b.first);
+            bool secondEq = (!a.second && !b.second) || (a.second && b.second && *a.second == *b.second);
+            return firstEq && secondEq;
+        }
+    };
+
+    std::queue<StatePair> Q;
+    std::unordered_set<StatePair, PairHash, PairEq> visited;
+
+    StatePair init = {from, prevOfFrom};
+    Q.push(init);
+    visited.insert(init);
+
+    while (!Q.empty()) {
+        auto [curr, prev] = Q.front(); Q.pop();
+
+        for (const auto& next : graph.getAdjacentNodes(curr)) {
+            // Semi-directed: endpoint AT curr must be TAIL or CIRCLE (not ARROW)
+            Edge edge = graph.getEdge(curr, next);
+            if (edge.getEndpoint(curr) == Endpoint::ARROW) continue;
+
+            // Uncovered constraint: next must not be adjacent to prev
+            if (prev && graph.isAdjacentTo(next, prev)) continue;
+
+            if (*next == *to) return true;
+
+            StatePair nextState = {next, curr};
+            if (!visited.count(nextState)) {
+                visited.insert(nextState);
+                Q.push(nextState);
+            }
+        }
+    }
+
+    return false;
+}
+
 // ---- R0R4StrategyTestBased ----
 
 R0R4StrategyTestBased::R0R4StrategyTestBased(IndependenceTest& test) : test_(test) {}
@@ -487,22 +555,19 @@ bool FciOrient::ruleR8(const NodePtr& a, const NodePtr& c, Graph& graph) {
 
 // R9: If a o-> c, and there is an uncovered potentially directed path from a to c
 // s.t. c and first-on-path not adj, orient a -> c.
-// Simplified: use existsSemiDirectedPath.
 bool FciOrient::ruleR9(const NodePtr& a, const NodePtr& c, Graph& graph) {
     if (!isPartiallyOrientedEdge(a, c, graph)) return false;
 
-    // Simplified: check if there exists any semidirected path from a to c
-    // of length >= 2 where c is not adjacent to the second node on the path.
     auto adjA = graph.getAdjacentNodes(a);
 
     for (const auto& beta : adjA) {
         if (*beta == *c) continue;
         if (graph.isAdjacentTo(c, beta)) continue;
 
-        // Check if edge a-beta is potentially directed away from a
+        // Edge a-beta must be potentially directed away from a
         Edge abEdge = graph.getEdge(a, beta);
         if (abEdge.isNull()) continue;
-        if (abEdge.getEndpoint(a) == Endpoint::ARROW) continue; // Points toward a, not away
+        if (abEdge.getEndpoint(a) == Endpoint::ARROW) continue;
 
         // Check if there's a semidirected path from beta to c
         if (graph.existsSemiDirectedPath(beta, c)) {

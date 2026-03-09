@@ -27,7 +27,10 @@ std::set<NodePtr> MeekRules::orientImplied(Graph& graph) {
         }
 
         // Step 2: Un-direct all directed edges (convert to undirected),
-        // except those required by knowledge.
+        // except those pinned by knowledge.
+        // Mirrors Java MeekRules.revertToUnshieldedColliders():
+        //   skip undirecting z→y if knowledge.isForbidden(y,z) [reverse is forbidden]
+        //                        OR knowledge.isRequired(z,y)   [this direction is required]
         std::vector<Edge> toUndirect;
         for (const auto& e : graph.getEdges()) {
             if (!isUndirectedEdge(e)) {
@@ -35,13 +38,17 @@ std::set<NodePtr> MeekRules::orientImplied(Graph& graph) {
                 if (e.getEndpoint1() == Endpoint::TAIL && e.getEndpoint2() == Endpoint::ARROW) {
                     const auto& tail = e.getNode1();
                     const auto& head = e.getNode2();
-                    if (knowledge_.isEmpty() || !knowledge_.isRequired(tail->getName(), head->getName())) {
+                    if (knowledge_.isEmpty() ||
+                        (!knowledge_.isRequired(tail->getName(), head->getName()) &&
+                         !knowledge_.isForbidden(head->getName(), tail->getName()))) {
                         toUndirect.push_back(e);
                     }
                 } else if (e.getEndpoint1() == Endpoint::ARROW && e.getEndpoint2() == Endpoint::TAIL) {
                     const auto& tail = e.getNode2();
                     const auto& head = e.getNode1();
-                    if (knowledge_.isEmpty() || !knowledge_.isRequired(tail->getName(), head->getName())) {
+                    if (knowledge_.isEmpty() ||
+                        (!knowledge_.isRequired(tail->getName(), head->getName()) &&
+                         !knowledge_.isForbidden(head->getName(), tail->getName()))) {
                         toUndirect.push_back(e);
                     }
                 }

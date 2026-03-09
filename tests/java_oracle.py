@@ -133,10 +133,11 @@ class TetradOracle:
 
     def _build_knowledge(self, knowledge: dict, all_cols: list[str]):
         kn = self._td.Knowledge()
-        if "addtemporal" in knowledge:
-            for tier, vars_ in knowledge["addtemporal"].items():
-                for v in vars_:
-                    kn.addToTier(int(tier), str(v))
+        # Support both "tiers" and legacy "addtemporal" key
+        tiers = knowledge.get("tiers") or knowledge.get("addtemporal") or {}
+        for tier, vars_ in tiers.items():
+            for v in vars_:
+                kn.addToTier(int(tier), str(v))
         if "forbidden" in knowledge:
             for src, tgt in knowledge["forbidden"]:
                 kn.setForbidden(str(src), str(tgt))
