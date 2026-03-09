@@ -76,6 +76,100 @@ static bool existsUncoveredSemiDirectedPath(
     return false;
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// File-scope helpers for R5
+// ─────────────────────────────────────────────────────────────────────────────
+
+// Returns the uncovered circle path from x to y (including both endpoints) if
+// one exists, or an empty vector otherwise.
+//
+// R5 constraints (Zhang 2008):
+//   - Only o-o (nondirected) edges may be traversed.
+//   - Path must have >= 3 edges (>= 2 intermediate nodes, i.e. >= 4 nodes total).
+//   - gamma (first hop from x) must NOT be adjacent to y.
+//   - theta (node just before y) must NOT be adjacent to x.
+//   - Uncovered: for every consecutive triple (prev, curr, next), prev and next
+//     must NOT be adjacent.
+//
+// Matches Java's R5R9Dijkstra with Rule.R5 and uncovered=true.
+static std::vector<NodePtr> findUncoveredCirclePath(
+    const Graph& graph, const NodePtr& x, const NodePtr& y)
+{
+    using StatePair = std::pair<NodePtr, NodePtr>; // (current, predecessor)
+
+    struct PairHash {
+        size_t operator()(const StatePair& p) const {
+            size_t h1 = p.first  ? std::hash<NodePtr>{}(p.first)  : 0;
+            size_t h2 = p.second ? std::hash<NodePtr>{}(p.second) : 0;
+            return h1 ^ (h2 * 2654435761u);
+        }
+    };
+    struct PairEq {
+        bool operator()(const StatePair& a, const StatePair& b) const {
+            bool firstEq  = (!a.first  && !b.first)  || (a.first  && b.first  && *a.first  == *b.first);
+            bool secondEq = (!a.second && !b.second) || (a.second && b.second && *a.second == *b.second);
+            return firstEq && secondEq;
+        }
+    };
+
+    std::queue<StatePair> Q;
+    std::unordered_set<StatePair, PairHash, PairEq> visited;
+    std::unordered_map<StatePair, StatePair, PairHash, PairEq> parent;
+
+    StatePair init = {x, nullptr};
+    Q.push(init);
+    visited.insert(init);
+
+    while (!Q.empty()) {
+        auto [curr, prev] = Q.front(); Q.pop();
+
+        for (const auto& next : graph.getAdjacentNodes(curr)) {
+            // R5: only traverse nondirected (o-o) edges
+            Edge edge = graph.getEdge(curr, next);
+            if (edge.getEndpoint(curr) != Endpoint::CIRCLE) continue;
+            if (edge.getEndpoint(next) != Endpoint::CIRCLE) continue;
+
+            // Skip length-1 paths (direct x→y)
+            if (*curr == *x && *next == *y) continue;
+
+            // Gamma constraint: first hop from x must not be adjacent to y
+            if (*curr == *x && graph.isAdjacentTo(next, y)) continue;
+
+            // Skip length-2 paths (prev is x and we're about to reach y)
+            if (*next == *y && prev && *prev == *x) continue;
+
+            // Theta constraint (R5 only): node just before y must not be adj to x
+            if (*next == *y && graph.isAdjacentTo(curr, x)) continue;
+
+            // Uncovered constraint: next must not be adjacent to predecessor
+            if (prev && graph.isAdjacentTo(next, prev)) continue;
+
+            StatePair nextState = {next, curr};
+            if (visited.count(nextState)) continue;
+
+            visited.insert(nextState);
+            parent[nextState] = {curr, prev};
+
+            if (*next == *y) {
+                // Reconstruct path from x to y
+                std::vector<NodePtr> path;
+                StatePair s = nextState;
+                path.push_back(s.first);          // y
+                while (parent.count(s)) {
+                    s = parent[s];
+                    path.push_back(s.first);      // intermediate nodes, then x
+                }
+                std::reverse(path.begin(), path.end());
+                return path;
+            }
+
+            Q.push(nextState);
+        }
+    }
+
+    return {};
+}
+
 // ---- R0R4StrategyTestBased ----
 
 R0R4StrategyTestBased::R0R4StrategyTestBased(IndependenceTest& test) : test_(test) {}
@@ -444,13 +538,40 @@ void FciOrient::ruleR4(Graph& graph) {
     }
 }
 
-// R5: For every a o--o b, if there is an uncovered circle path from a to b
-// s.t. a,theta not adj and b,gamma not adj, orient as undirected.
-// Simplified: skip complex Dijkstra, just check for simple cases.
-void FciOrient::ruleR5(Graph& /*graph*/) {
-    // R5 requires finding uncovered circle paths via Dijkstra.
-    // This is a simplified version that does not implement the full path search.
-    // In practice, R5 rarely fires. We leave it as a no-op for now.
+// R5: If a o-o b, and there is an uncovered circle path from a to b s.t.
+// gamma (first hop from a) not adj to b, and theta (last before b) not adj to
+// a, orient a o-o b as a -- b and all path edges as undirected.
+void FciOrient::ruleR5(Graph& graph) {
+    for (const auto& edge : graph.getEdges()) {
+        // R5 applies to nondirected (o-o) edges only
+        if (edge.getEndpoint1() != Endpoint::CIRCLE) continue;
+        if (edge.getEndpoint2() != Endpoint::CIRCLE) continue;
+
+        const auto& x = edge.getNode1();
+        const auto& y = edge.getNode2();
+
+        // Try both directions since R5 constraints are directional
+        for (int dir = 0; dir < 2; dir++) {
+            const auto& a = (dir == 0) ? x : y;
+            const auto& b = (dir == 0) ? y : x;
+
+            std::vector<NodePtr> path = findUncoveredCirclePath(graph, a, b);
+            if (path.empty()) continue;
+
+            // Orient a-b as undirected (TAIL-TAIL)
+            graph.setEndpoint(a, b, Endpoint::TAIL);
+            graph.setEndpoint(b, a, Endpoint::TAIL);
+
+            // Orient all edges on the found path as undirected
+            for (size_t i = 0; i + 1 < path.size(); i++) {
+                graph.setEndpoint(path[i], path[i + 1], Endpoint::TAIL);
+                graph.setEndpoint(path[i + 1], path[i], Endpoint::TAIL);
+            }
+
+            changeFlag_ = true;
+            break; // one valid path suffices for this edge
+        }
+    }
 }
 
 // R6: If a -- b o-* c, orient b o-* c as b -* c (set circle at b to tail).
@@ -569,8 +690,10 @@ bool FciOrient::ruleR9(const NodePtr& a, const NodePtr& c, Graph& graph) {
         if (abEdge.isNull()) continue;
         if (abEdge.getEndpoint(a) == Endpoint::ARROW) continue;
 
-        // Check if there's a semidirected path from beta to c
-        if (graph.existsSemiDirectedPath(beta, c)) {
+        // Check if there's an uncovered semi-directed path from beta to c
+        // (beta is first step after a, so prevOfFrom = a).
+        // Matches Java's R5R9Dijkstra with Rule.R9 and uncovered=true.
+        if (existsUncoveredSemiDirectedPath(graph, beta, c, a)) {
             graph.setEndpoint(c, a, Endpoint::TAIL);
             changeFlag_ = true;
             return true;
@@ -599,7 +722,11 @@ void FciOrient::ruleR10(const NodePtr& alpha, const NodePtr& gamma, Graph& graph
             if (graph.getEndpoint(gamma, beta) != Endpoint::TAIL) continue;
             if (graph.getEndpoint(gamma, theta) != Endpoint::TAIL) continue;
 
+            // Candidates for nu/omega: neighbors of alpha excluding beta and theta
+            // (matches Java: adj1.remove(beta); adj1.remove(theta))
             auto adjAlpha = graph.getAdjacentNodes(alpha);
+            adjAlpha.erase(std::remove_if(adjAlpha.begin(), adjAlpha.end(),
+                [&](const NodePtr& n) { return *n == *beta || *n == *theta; }), adjAlpha.end());
 
             for (size_t k = 0; k < adjAlpha.size(); k++) {
                 for (size_t l = k + 1; l < adjAlpha.size(); l++) {

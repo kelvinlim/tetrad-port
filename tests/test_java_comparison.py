@@ -110,30 +110,67 @@ def _make_dag(n_obs: int, n_hidden: int = 0, n_samples: int = 2000,
 
 _SEP_RE = re.compile(r"(<->|-->|o->|o-o|<-o|<--|---)")
 
+# Symmetric separators: edge meaning is the same regardless of node ordering.
+_SYMMETRIC_SEPS = {"<->", "o-o", "---"}
+
 
 def _adjacency(edges: list[str]) -> set[frozenset]:
     result = set()
     for e in edges:
         m = _SEP_RE.search(e)
         if m:
-            sep_start = m.start()
-            sep_end = m.end()
-            a = e[:sep_start].strip()
-            b = e[sep_end:].strip()
+            a = e[:m.start()].strip()
+            b = e[m.end():].strip()
             result.add(frozenset({a, b}))
     return result
 
 
-def _edge_map(edges: list[str]) -> dict[frozenset, str]:
+def _canonical_edge(e: str) -> tuple | None:
+    """
+    Return a direction-preserving canonical key for an edge string.
+
+    For symmetric marks (<->, o-o, ---) the key is (sep, frozenset).
+    For directed/asymmetric marks (--> <-- o-> <-o) the key is (sep, tail_node, head_node)
+    so that 'A --> B' and 'B --> A' produce DIFFERENT keys.
+
+    Canonicalises '<-o' as 'o->' and '<--' as '-->' by swapping a and b, so
+    that mark comparisons are always in terms of --> / o-> canonical forms.
+    """
+    m = _SEP_RE.search(e)
+    if m is None:
+        return None
+    sep = m.group()
+    a = e[:m.start()].strip()
+    b = e[m.end():].strip()
+
+    # Normalise reversed-arrow spellings to their canonical form
+    if sep == "<--":
+        sep, a, b = "-->", b, a
+    elif sep == "<-o":
+        sep, a, b = "o->", b, a
+
+    if sep in _SYMMETRIC_SEPS:
+        return (sep, frozenset({a, b}))
+    # directed/asymmetric: preserve (tail, head) order
+    return (sep, a, b)
+
+
+def _edge_map(edges: list[str]) -> dict:
+    """Map canonical edge key → full edge string."""
     result = {}
     for e in edges:
-        m = _SEP_RE.search(e)
-        if m:
-            sep = m.group()
-            a = e[:m.start()].strip()
-            b = e[m.end():].strip()
-            result[frozenset({a, b})] = sep
+        key = _canonical_edge(e)
+        if key is not None:
+            result[key] = e
     return result
+
+
+def _pair_key(e: str) -> frozenset | None:
+    """Frozenset node-pair key (for adjacency lookup only)."""
+    m = _SEP_RE.search(e)
+    if m is None:
+        return None
+    return frozenset({e[:m.start()].strip(), e[m.end():].strip()})
 
 
 def jaccard(a: set, b: set) -> float:
@@ -145,14 +182,39 @@ def jaccard(a: set, b: set) -> float:
 
 
 def agreement_rate(java_edges: list[str], cpp_edges: list[str]) -> tuple[float, list]:
-    jmap = _edge_map(java_edges)
-    cmap = _edge_map(cpp_edges)
-    shared = set(jmap) & set(cmap)
-    if not shared:
+    """
+    Compute the fraction of shared adjacencies whose canonical edge marks agree.
+
+    Uses direction-preserving canonical keys so that 'A --> B' vs 'B --> A'
+    is counted as a disagreement, not an agreement.
+
+    Returns (rate, diffs) where diffs is a list of (java_full, cpp_full) pairs.
+    """
+    # Build pair → full-string maps for each side
+    j_by_pair: dict[frozenset, str] = {}
+    c_by_pair: dict[frozenset, str] = {}
+    for e in java_edges:
+        p = _pair_key(e)
+        if p is not None:
+            j_by_pair[p] = e
+    for e in cpp_edges:
+        p = _pair_key(e)
+        if p is not None:
+            c_by_pair[p] = e
+
+    shared_pairs = set(j_by_pair) & set(c_by_pair)
+    if not shared_pairs:
         return 0.0, []
-    diffs = [(sorted(p), jmap[p], cmap[p]) for p in shared if jmap[p] != cmap[p]]
-    agree = len(shared) - len(diffs)
-    return agree / len(shared), diffs
+
+    diffs = []
+    for p in shared_pairs:
+        je = j_by_pair[p]
+        ce = c_by_pair[p]
+        if _canonical_edge(je) != _canonical_edge(ce):
+            diffs.append((je, ce))
+
+    agree = len(shared_pairs) - len(diffs)
+    return agree / len(shared_pairs), diffs
 
 
 def assert_similarity(
@@ -181,9 +243,10 @@ def assert_similarity(
     if only_cpp:
         msg_parts.append(f"  Only in C++:  {[sorted(p) for p in only_cpp]}")
     if diffs:
-        msg_parts.append("  Type disagreements:")
-        for pair, jt, ct in diffs:
-            msg_parts.append(f"    {pair[0]} — {pair[1]}: Java={jt}, C++={ct}")
+        msg_parts.append("  Edge disagreements (full strings):")
+        for je, ce in diffs:
+            msg_parts.append(f"    Java: {je!r}")
+            msg_parts.append(f"    C++:  {ce!r}")
     msg_parts.append(f"  Java edges: {java_edges}")
     msg_parts.append(f"  C++  edges: {cpp_edges}")
     detail = "\n".join(msg_parts)
@@ -330,3 +393,71 @@ class TestGRaSPFCIComparison:
         java = oracle.run("grasp_fci", df, alpha=0.01, penalty_discount=1.0)
         cpp_r, _ = cpp.run_grasp_fci(df, alpha=0.01, penalty_discount=1.0)
         assert_similarity("grasp_fci/latent", java, cpp_r["edges"], min_jaccard=0.75, min_type_agree=0.5)
+
+
+# ---------------------------------------------------------------------------
+# Boston EMA dataset: real-world lagged data with temporal knowledge
+# ---------------------------------------------------------------------------
+
+_BOSTON_CSV = Path(__file__).parent / "data" / "boston_data_raw.csv"
+
+
+def _make_boston_lagged():
+    """
+    Load Boston EMA data and create lagged (t-1) versions of each variable.
+
+    Returns (df, knowledge_cpp, knowledge_java) where:
+      - df has columns [v1, v2, ..., v1_lag, v2_lag, ...]
+      - knowledge_cpp is a tetrad_port.Knowledge with lag vars in tier 0,
+        current vars in tier 1
+      - knowledge_java is a dict {"tiers": {0: [...], 1: [...]}} for the oracle
+    """
+    from tetrad_port import Knowledge
+
+    raw = pd.read_csv(_BOSTON_CSV).dropna()
+    curr_cols = list(raw.columns)
+    lag_cols = [c + "_lag" for c in curr_cols]
+
+    curr = raw.iloc[1:].reset_index(drop=True)
+    lag = raw.iloc[:-1].reset_index(drop=True)
+    lag.columns = lag_cols
+
+    df = pd.concat([curr, lag], axis=1)
+
+    kn = Knowledge()
+    for v in lag_cols:
+        kn.add_to_tier(0, v)
+    for v in curr_cols:
+        kn.add_to_tier(1, v)
+
+    knowledge_java = {"tiers": {0: lag_cols, 1: curr_cols}}
+
+    return df, kn, knowledge_java
+
+
+@needs_java
+@pytest.mark.skipif(not _BOSTON_CSV.exists(), reason="Boston data not found in tests/data/")
+class TestBostonKnowledgeComparison:
+    """Compare Java vs C++ on real EMA data with temporal knowledge (tier 0=lag, tier 1=current)."""
+
+    @pytest.fixture(scope="class")
+    def boston(self):
+        return _make_boston_lagged()
+
+    def test_gfci_boston(self, oracle, cpp, boston):
+        df, kn, kn_java = boston
+        java = oracle.run("gfci", df, alpha=0.01, penalty_discount=1.0, knowledge=kn_java)
+        cpp_r, _ = cpp.run_gfci(df, alpha=0.01, penalty_discount=1.0, knowledge=kn)
+        assert_similarity("gfci/boston", java, cpp_r["edges"], min_jaccard=0.85, min_type_agree=0.65)
+
+    def test_boss_fci_boston(self, oracle, cpp, boston):
+        df, kn, kn_java = boston
+        java = oracle.run("boss_fci", df, alpha=0.01, penalty_discount=1.0, knowledge=kn_java)
+        cpp_r, _ = cpp.run_boss_fci(df, alpha=0.01, penalty_discount=1.0, knowledge=kn)
+        assert_similarity("boss_fci/boston", java, cpp_r["edges"], min_jaccard=0.85, min_type_agree=0.60)
+
+    def test_grasp_fci_boston(self, oracle, cpp, boston):
+        df, kn, kn_java = boston
+        java = oracle.run("grasp_fci", df, alpha=0.01, penalty_discount=1.0, knowledge=kn_java)
+        cpp_r, _ = cpp.run_grasp_fci(df, alpha=0.01, penalty_discount=1.0, knowledge=kn)
+        assert_similarity("grasp_fci/boston", java, cpp_r["edges"], min_jaccard=0.85, min_type_agree=0.40)

@@ -37,19 +37,22 @@ results, graph_info = tp.run_pc(df, alpha=0.05, knowledge=k)
 
 ## Algorithm Comparison
 
-| Feature | PC | FGES | GFCI |
-|---------|----|----|------|
-| Type | Constraint-based | Score-based | Hybrid |
-| Output | CPDAG | CPDAG | PAG |
-| Latent confounders | No | No | Yes |
-| Speed (large graphs) | Slower | Faster | Medium |
-| Key parameter | `alpha` | `penalty_discount` | `alpha` + `penalty_discount` |
+| Feature | PC | FGES | GFCI | BOSS | BOSS-FCI | GRaSP | GRaSP-FCI |
+|---------|----|----|------|------|----------|-------|-----------|
+| Type | Constraint | Score | Hybrid | Permutation | Perm + FCI | Permutation | Perm + FCI |
+| Output | CPDAG | CPDAG | PAG | CPDAG | PAG | CPDAG | PAG |
+| Latent confounders | No | No | Yes | No | Yes | No | Yes |
+| Key parameter | `alpha` | `penalty_discount` | both | `penalty_discount` | both | `penalty_discount` | both |
 
 ### When to use which?
 
 - **PC**: Good default when you believe all relevant variables are measured. Uses conditional independence tests.
 - **FGES**: Preferred for large, sparse graphs where score-based search is more efficient. Also assumes causal sufficiency.
 - **GFCI**: Use when unmeasured confounders may exist. Returns a PAG that can indicate bidirected edges (`<->`) representing latent common causes.
+- **BOSS**: Permutation-based, often faster than FGES with higher adjacency/orientation precision. Assumes causal sufficiency.
+- **BOSS-FCI**: BOSS combined with FCI orientation rules. Handles latent confounders with BOSS's precision advantages.
+- **GRaSP**: Permutation-based with DFS tuck moves. Very high precision for linear Gaussian data.
+- **GRaSP-FCI**: GRaSP combined with FCI rules. Highest precision PAG algorithm for linear Gaussian data.
 
 ## API Reference
 
@@ -111,6 +114,83 @@ Run GFCI (Greedy FCI). Returns a PAG (Partial Ancestral Graph).
 
 ---
 
+### `TetradPort.run_boss(df, penalty_discount=1.0, use_bes=False, num_starts=1, use_data_order=True, knowledge=None, verbose=None)`
+
+Run BOSS (Best Order Score Search). Permutation-based, returns a CPDAG.
+
+**Parameters:**
+- `df` (pd.DataFrame): Continuous numeric data.
+- `penalty_discount` (float): BIC penalty multiplier. 1.0 = standard BIC.
+- `use_bes` (bool): Run Backward Equivalence Search refinement.
+- `num_starts` (int): Number of random restarts. Best result returned.
+- `use_data_order` (bool): Use data column order for the first run.
+- `knowledge` (Knowledge | None): Background knowledge constraints.
+
+**Returns:** `(results, graph_info)` tuple.
+
+---
+
+### `TetradPort.run_boss_fci(df, alpha=0.05, penalty_discount=1.0, depth=-1, complete_rule_set=True, max_disc_path_length=-1, use_bes=False, num_starts=1, knowledge=None, verbose=None)`
+
+Run BOSS-FCI. BOSS + FCI orientation rules, returns a PAG.
+
+**Parameters:**
+- `df` (pd.DataFrame): Continuous numeric data.
+- `alpha` (float): Significance level for independence tests.
+- `penalty_discount` (float): BIC penalty for BOSS scoring phase.
+- `depth` (int): Max conditioning set size.
+- `complete_rule_set` (bool): Use Zhang's R1-R10 rules (True) or Spirtes' R1-R4 (False).
+- `max_disc_path_length` (int): Max discriminating path length for R4.
+- `use_bes` (bool): Run BES refinement in BOSS.
+- `num_starts` (int): Number of random restarts.
+- `knowledge` (Knowledge | None): Background knowledge constraints.
+
+**Returns:** `(results, graph_info)` tuple.
+
+---
+
+### `TetradPort.run_grasp(df, penalty_discount=1.0, depth=3, uncovered_depth=1, non_singular_depth=1, ordered=False, num_starts=1, use_data_order=True, knowledge=None, verbose=None)`
+
+Run GRaSP (Greedy Relaxations of SP). Permutation-based with DFS tucks, returns a CPDAG.
+
+**Parameters:**
+- `df` (pd.DataFrame): Continuous numeric data.
+- `penalty_discount` (float): BIC penalty multiplier.
+- `depth` (int): Max DFS depth for singular tucks (default 3).
+- `uncovered_depth` (int): Max depth for uncovered tucks (default 1).
+- `non_singular_depth` (int): Max depth for non-singular tucks (default 1).
+- `ordered` (bool): Enforce GRaSP0/1/2 ordering.
+- `num_starts` (int): Number of random restarts.
+- `use_data_order` (bool): Use data column order for the first run.
+- `knowledge` (Knowledge | None): Background knowledge constraints.
+
+**Returns:** `(results, graph_info)` tuple.
+
+---
+
+### `TetradPort.run_grasp_fci(df, alpha=0.05, penalty_discount=1.0, depth=-1, grasp_depth=3, uncovered_depth=1, non_singular_depth=1, ordered=False, complete_rule_set=True, max_disc_path_length=-1, num_starts=1, use_data_order=True, knowledge=None, verbose=None)`
+
+Run GRaSP-FCI. GRaSP + FCI orientation rules, returns a PAG.
+
+**Parameters:**
+- `df` (pd.DataFrame): Continuous numeric data.
+- `alpha` (float): Significance level for independence tests.
+- `penalty_discount` (float): BIC penalty for GRaSP scoring phase.
+- `depth` (int): Max conditioning set size for FCI.
+- `grasp_depth` (int): Max DFS depth for GRaSP tucks (default 3).
+- `uncovered_depth` (int): Max depth for uncovered tucks.
+- `non_singular_depth` (int): Max depth for non-singular tucks.
+- `ordered` (bool): Enforce GRaSP ordering.
+- `complete_rule_set` (bool): Use Zhang's R1-R10 rules.
+- `max_disc_path_length` (int): Max discriminating path length for R4.
+- `num_starts` (int): Number of random restarts.
+- `use_data_order` (bool): Use data column order for the first run.
+- `knowledge` (Knowledge | None): Background knowledge constraints.
+
+**Returns:** `(results, graph_info)` tuple.
+
+---
+
 ## Return Value Structure
 
 All `run_*` methods return `(results, graph_info)`.
@@ -123,8 +203,8 @@ All `run_*` methods return `(results, graph_info)`.
 | `nodes` | list[str] | Variable names |
 | `num_edges` | int | Number of edges |
 | `num_nodes` | int | Number of variables |
-| `alpha` | float | (PC, GFCI) Significance level used |
-| `penalty_discount` | float | (FGES, GFCI) BIC penalty used |
+| `alpha` | float | (PC, GFCI, BOSS-FCI, GRaSP-FCI) Significance level used |
+| `penalty_discount` | float | (FGES, GFCI, BOSS, BOSS-FCI, GRaSP, GRaSP-FCI) BIC penalty used |
 | `model_score` | float | (FGES only) BIC model score |
 
 ### `graph_info` dict
@@ -150,7 +230,7 @@ All `run_*` methods return `(results, graph_info)`.
 
 ## Background Knowledge
 
-The `Knowledge` class lets you encode domain expertise to constrain causal search. All three algorithms (`run_pc`, `run_fges`, `run_gfci`) accept a `knowledge` parameter.
+The `Knowledge` class lets you encode domain expertise to constrain causal search. All algorithms accept a `knowledge` parameter.
 
 ### `Knowledge()`
 
@@ -212,6 +292,12 @@ k.is_required("Smoking", "BloodPressure")
 ---
 
 ## Utility Methods
+
+> **Note:** These utility methods are also available (and recommended) via the
+> [fastcausal](https://github.com/kelvinlim/fastcausal) package:
+> `fastcausal.sem`, `fastcausal.transform`, and `fastcausal.knowledge`.
+> In a future tetrad-port release, these may be removed from `TetradPort`
+> to keep tetrad-port focused on algorithms and data structures.
 
 ### `TetradPort.edges_to_lavaan(edges)`
 

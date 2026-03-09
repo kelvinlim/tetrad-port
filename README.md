@@ -88,7 +88,7 @@ The C++ core lives in `src/` under `namespace tetrad`:
 
 - **`src/graph/`** — Node, Edge, Graph (EdgeListGraph with TAIL/ARROW/CIRCLE endpoints)
 - **`src/data/`** — DataSet (Eigen matrix wrapper), Knowledge (tiers, forbidden/required edges)
-- **`src/search/`** — PC, FAS, MeekRules, FGES, FciOrient, GFCI, IndTestFisherZ, SemBicScore
+- **`src/search/`** — PC, FAS, MeekRules, FGES, FciOrient, GFCI, BOSS, BOSS-FCI, GRaSP, GRaSP-FCI, IndTestFisherZ, SemBicScore, GrowShrinkTree
 - **`src/util/`** — ChoiceGenerator, SublistGenerator
 
 Python bindings (`bindings/tetrad_bindings.cpp`) expose algorithms via nanobind. The `TetradPort` facade class (`python/tetrad_port/__init__.py`) provides a pandas-friendly API with SEM fitting helpers.
