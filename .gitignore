@@ -1,5 +1,6 @@
 # Build
 build/
+build-*/
 cmake-build-*/
 
 # IDE
@@ -16,6 +17,8 @@ cmake-build-*/
 tetrad-7.6.8
 
 fastcda
+fastcausal
+test_fastcausal
 
 # Downloaded JARs (not checked in — see README for download instructions)
 jars/
@@ -41,6 +44,12 @@ __pycache__/
 
 # Jupyter
 .ipynb_checkpoints/
+
+# R package build artifacts
+r/rtetrad.Rcheck/
+r/rtetrad/src/rtetrad.Rcheck/
+r/rtetrad/src/Makevars
+r/rtetrad_*.tar.gz
 
 # tetrad linked directory
 tetrad/
