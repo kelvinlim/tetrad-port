@@ -46,6 +46,16 @@ private:
     std::set<NodePtr>* findSepset(const Graph& graph, const NodePtr& x, const NodePtr& y,
                                    const std::set<NodePtr>& containing);
 
+    // Sepset finding: find a separating set from an explicit candidate list.
+    std::set<NodePtr>* findSepsetFromList(const Graph& graph, const NodePtr& x, const NodePtr& y,
+                                           const std::vector<NodePtr>& candidates);
+
+    // Orient colliders from CPDAG definite colliders and sepset-based triples.
+    void orientCollidersFromCpdag(Graph& pag, const Graph& cpdag,
+                                   const std::vector<NodePtr>& nodes,
+                                   const SepsetMap& sepsetMap,
+                                   std::unordered_set<Triple>& unshieldedColliders);
+
     // Check if collider orientation is allowed by knowledge.
     static bool colliderAllowed(const Graph& pag, const NodePtr& x, const NodePtr& y,
                                  const NodePtr& z, const Knowledge& knowledge);

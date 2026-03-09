@@ -15,6 +15,7 @@ TEST_CASE("Meek R1: a→b—c, a not adj c → b→c", "[meek]") {
     // a not adjacent to c
 
     MeekRules rules;
+    rules.setRevertToUnshieldedColliders(false);  // propagation-only mode (PC's mode)
     rules.orientImplied(g);
 
     REQUIRE(g.isDirectedFromTo(b, c));
@@ -32,6 +33,7 @@ TEST_CASE("Meek R2: a→b→c, a—c → a→c", "[meek]") {
     g.addUndirectedEdge(a, c);
 
     MeekRules rules;
+    rules.setRevertToUnshieldedColliders(false);  // propagation-only mode (PC's mode)
     rules.orientImplied(g);
 
     REQUIRE(g.isDirectedFromTo(a, c));
@@ -53,6 +55,7 @@ TEST_CASE("Meek R3: d—a, d—b, d—c, b→a, c→a, b not adj c → d→a", "
     // b not adjacent to c
 
     MeekRules rules;
+    rules.setRevertToUnshieldedColliders(false);  // propagation-only mode (PC's mode)
     rules.orientImplied(g);
 
     REQUIRE(g.isDirectedFromTo(d, a));
@@ -72,6 +75,7 @@ TEST_CASE("Meek prevents cycles", "[meek]") {
     // R1 would want to orient c→a (because b→c and b not adj a... wait, b IS adj to a)
     // Actually, this tests that Meek doesn't create cycle c→a when a→b→c exists.
     MeekRules rules;
+    rules.setRevertToUnshieldedColliders(false);  // propagation-only mode (PC's mode)
     rules.setMeekPreventCycles(true);
     rules.orientImplied(g);
 

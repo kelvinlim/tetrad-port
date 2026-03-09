@@ -57,6 +57,9 @@ add_library(tetrad_cpp STATIC
     src/search/permutation_search.cpp
     src/search/star_fci.cpp
     src/search/boss_fci.cpp
+    src/search/teyssier_scorer.cpp
+    src/search/grasp.cpp
+    src/search/grasp_fci.cpp
     src/util/choice_generator.cpp
     src/util/log_stream.cpp
 )
@@ -109,6 +112,8 @@ if(NOT SKBUILD)
         tests/test_gfci.cpp
         tests/test_boss.cpp
         tests/test_boss_fci.cpp
+        tests/test_grasp.cpp
+        tests/test_grasp_fci.cpp
     )
     target_link_libraries(tetrad_tests PRIVATE tetrad_cpp Catch2::Catch2WithMain)
     add_test(NAME tetrad_tests COMMAND tetrad_tests)

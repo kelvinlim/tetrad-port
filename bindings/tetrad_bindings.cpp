@@ -14,6 +14,8 @@
 #include "search/boss.h"
 #include "search/permutation_search.h"
 #include "search/boss_fci.h"
+#include "search/grasp.h"
+#include "search/grasp_fci.h"
 #include "graph/graph.h"
 #include "graph/edge.h"
 #include "graph/node.h"
@@ -247,8 +249,96 @@ static SearchResult run_boss_fci_raw(
     return graph_to_result(g);
 }
 
+static SearchResult run_grasp_raw(
+    const Eigen::MatrixXd& data,
+    const std::vector<std::string>& col_names,
+    double penalty_discount,
+    int depth,
+    int uncovered_depth,
+    int non_singular_depth,
+    bool ordered,
+    int num_starts,
+    bool use_data_order,
+    bool verbose,
+    const Knowledge& knowledge = Knowledge()
+) {
+    if (static_cast<int>(col_names.size()) != data.cols()) {
+        throw std::invalid_argument(
+            "Number of column names (" + std::to_string(col_names.size()) +
+            ") must match number of columns (" + std::to_string(data.cols()) + ")"
+        );
+    }
+
+    DataSet ds(data, col_names);
+    SemBicScore score(ds);
+    score.setPenaltyDiscount(penalty_discount);
+
+    Grasp grasp(score);
+    grasp.setDepth(depth);
+    grasp.setUncoveredDepth(uncovered_depth);
+    grasp.setNonSingularDepth(non_singular_depth);
+    grasp.setOrdered(ordered);
+    grasp.setNumStarts(num_starts);
+    grasp.setUseDataOrder(use_data_order);
+    grasp.setVerbose(verbose);
+    if (!knowledge.isEmpty()) grasp.setKnowledge(knowledge);
+
+    auto variables = score.getVariables();
+    grasp.bestOrder(variables);
+    Graph g = grasp.getGraph(true);
+
+    return graph_to_result(g);
+}
+
+static SearchResult run_grasp_fci_raw(
+    const Eigen::MatrixXd& data,
+    const std::vector<std::string>& col_names,
+    double alpha,
+    double penalty_discount,
+    int depth,
+    int grasp_depth,
+    int uncovered_depth,
+    int non_singular_depth,
+    bool ordered,
+    bool complete_rule_set,
+    int max_disc_path_length,
+    int num_starts,
+    bool use_data_order,
+    bool verbose,
+    const Knowledge& knowledge = Knowledge()
+) {
+    if (static_cast<int>(col_names.size()) != data.cols()) {
+        throw std::invalid_argument(
+            "Number of column names (" + std::to_string(col_names.size()) +
+            ") must match number of columns (" + std::to_string(data.cols()) + ")"
+        );
+    }
+
+    DataSet ds(data, col_names);
+    SemBicScore score(ds);
+    score.setPenaltyDiscount(penalty_discount);
+    IndTestFisherZ test(ds, alpha);
+
+    GraspFci gfci(test, score);
+    gfci.setDepth(depth);
+    gfci.setGraspDepth(grasp_depth);
+    gfci.setUncoveredDepth(uncovered_depth);
+    gfci.setNonSingularDepth(non_singular_depth);
+    gfci.setOrdered(ordered);
+    gfci.setVerbose(verbose);
+    gfci.setCompleteRuleSetUsed(complete_rule_set);
+    gfci.setMaxDiscriminatingPathLength(max_disc_path_length);
+    gfci.setNumStarts(num_starts);
+    gfci.setUseDataOrder(use_data_order);
+    if (!knowledge.isEmpty()) gfci.setKnowledge(knowledge);
+
+    Graph g = gfci.search();
+
+    return graph_to_result(g);
+}
+
 NB_MODULE(_tetrad_cpp, m) {
-    m.doc() = "C++ tetrad-port bindings: PC, FGES, GFCI, BOSS, and BOSS-FCI algorithms for causal discovery";
+    m.doc() = "C++ tetrad-port bindings: PC, FGES, GFCI, BOSS, BOSS-FCI, GRaSP, and GRaSP-FCI algorithms for causal discovery";
 
     nb::class_<Knowledge>(m, "Knowledge")
         .def(nb::init<>())
@@ -420,6 +510,76 @@ NB_MODULE(_tetrad_cpp, m) {
         "    max_disc_path_length: max discriminating path length (-1 unlimited)\n"
         "    use_bes: run BES refinement in BOSS (default False)\n"
         "    num_starts: number of random restarts for BOSS (default 1)\n"
+        "    verbose: print progress to stdout\n"
+        "    knowledge: background knowledge (Knowledge object)\n\n"
+        "Returns:\n"
+        "    SearchResult with edges (PAG edge strings) and nodes"
+    );
+
+    m.def("run_grasp_raw", &run_grasp_raw,
+        nb::arg("data"),
+        nb::arg("col_names"),
+        nb::arg("penalty_discount") = 1.0,
+        nb::arg("depth") = 3,
+        nb::arg("uncovered_depth") = 1,
+        nb::arg("non_singular_depth") = 1,
+        nb::arg("ordered") = false,
+        nb::arg("num_starts") = 1,
+        nb::arg("use_data_order") = true,
+        nb::arg("verbose") = false,
+        nb::arg("knowledge") = Knowledge(),
+        "Run the GRaSP (Greedy Relaxations of SP) algorithm on data.\n\n"
+        "GRaSP searches permutation space using depth-first tuck moves\n"
+        "with backtracking to find optimal variable orderings.\n\n"
+        "Args:\n"
+        "    data: numpy array (n_samples x n_variables)\n"
+        "    col_names: list of variable names\n"
+        "    penalty_discount: BIC penalty multiplier (1.0 = standard BIC)\n"
+        "    depth: max DFS depth for singular tucks (default 3)\n"
+        "    uncovered_depth: max depth for uncovered tucks (default 1)\n"
+        "    non_singular_depth: max depth for non-singular tucks (default 1)\n"
+        "    ordered: enforce GRaSP0/1/2 ordering (default False)\n"
+        "    num_starts: number of random restarts (default 1)\n"
+        "    use_data_order: use data column order for first run (default True)\n"
+        "    verbose: print progress to stdout\n"
+        "    knowledge: background knowledge (Knowledge object)\n\n"
+        "Returns:\n"
+        "    SearchResult with edges, nodes"
+    );
+
+    m.def("run_grasp_fci_raw", &run_grasp_fci_raw,
+        nb::arg("data"),
+        nb::arg("col_names"),
+        nb::arg("alpha") = 0.05,
+        nb::arg("penalty_discount") = 1.0,
+        nb::arg("depth") = -1,
+        nb::arg("grasp_depth") = 3,
+        nb::arg("uncovered_depth") = 1,
+        nb::arg("non_singular_depth") = 1,
+        nb::arg("ordered") = false,
+        nb::arg("complete_rule_set") = true,
+        nb::arg("max_disc_path_length") = -1,
+        nb::arg("num_starts") = 1,
+        nb::arg("use_data_order") = true,
+        nb::arg("verbose") = false,
+        nb::arg("knowledge") = Knowledge(),
+        "Run the GRaSP-FCI algorithm on data.\n\n"
+        "GRaSP-FCI combines the GRaSP algorithm with FCI orientation rules\n"
+        "to handle latent (unmeasured) confounders. Returns a PAG.\n\n"
+        "Args:\n"
+        "    data: numpy array (n_samples x n_variables)\n"
+        "    col_names: list of variable names\n"
+        "    alpha: significance level for independence tests\n"
+        "    penalty_discount: BIC penalty multiplier (1.0 = standard BIC)\n"
+        "    depth: max conditioning set size for FCI (-1 unlimited)\n"
+        "    grasp_depth: max DFS depth for GRaSP tucks (default 3)\n"
+        "    uncovered_depth: max depth for uncovered tucks (default 1)\n"
+        "    non_singular_depth: max depth for non-singular tucks (default 1)\n"
+        "    ordered: enforce GRaSP0/1/2 ordering (default False)\n"
+        "    complete_rule_set: use Zhang's complete rules R1-R10 (default True)\n"
+        "    max_disc_path_length: max discriminating path length (-1 unlimited)\n"
+        "    num_starts: number of random restarts (default 1)\n"
+        "    use_data_order: use data column order for first run (default True)\n"
         "    verbose: print progress to stdout\n"
         "    knowledge: background knowledge (Knowledge object)\n\n"
         "Returns:\n"

@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-C++ port of CMU's Tetrad causal inference library. Implements constraint-based (PC), score-based (FGES, BOSS), and latent-variable (GFCI, BOSS-FCI) algorithms with Python bindings via nanobind. The project is expanding to include GRASP and GRASP-FCI.
+C++ port of CMU's Tetrad causal inference library. Implements constraint-based (PC), score-based (FGES, BOSS, GRaSP), and latent-variable (GFCI, BOSS-FCI, GRaSP-FCI) algorithms with Python bindings via nanobind.
 
 ## Reference Version
 
@@ -35,6 +35,11 @@ pip install -e ".[dev]"
 
 # Run Python tests
 pytest tests/test_python_bindings.py -v
+
+# Run Java vs C++ comparison tests (requires Tetrad JAR and jpype)
+# Download JAR first: see tests/java_oracle.py for the Maven URL
+pytest tests/test_java_comparison.py -v
+pytest tests/test_java_comparison.py -v -k gfci   # single algorithm
 ```
 
 ## Architecture
@@ -50,21 +55,21 @@ All code lives in `namespace tetrad`. Nodes use `std::shared_ptr<Node>` (`NodePt
 - **`src/search/`** — Search algorithms and independence testing:
   - **PC pipeline**: FAS → collider orientation → Meek Rules (R1-R4)
   - **Score-based**: abstract `Score` interface, `SemBicScore` (BIC), `Fges` (forward-backward GES)
-  - **Permutation-based**: `GrowShrinkTree`, `Boss`, `BesPermutation`, `PermutationSearch`
-  - **Latent-variable**: `FciOrient` (R0-R10), `Gfci`, `StarFci` (abstract *-FCI template), `BossFci`
+  - **Permutation-based**: `GrowShrinkTree`, `Boss`, `BesPermutation`, `PermutationSearch`, `TeyssierScorer`, `Grasp`
+  - **Latent-variable**: `FciOrient` (R0-R10), `Gfci`, `StarFci` (abstract *-FCI template), `BossFci`, `GraspFci`
   - `IndependenceTest` is the abstract interface; `IndTestFisherZ` implements Fisher Z via Cholesky decomposition on correlation submatrices.
 
 - **`src/util/`** — ChoiceGenerator for lexicographic C(n,k) enumeration, SublistGenerator for subset enumeration.
 
 ### Python Layer
 
-- **`bindings/tetrad_bindings.cpp`** — nanobind module exposing `run_pc_raw()`, `run_fges_raw()`, `run_gfci_raw()`, `run_boss_raw()`, `run_boss_fci_raw()` and `SearchResult` struct. Automatic numpy ↔ Eigen conversion.
-- **`python/tetrad_port/__init__.py`** — `TetradPort` facade class with `run_pc()`, `run_fges()`, `run_gfci()`, `run_boss()`, `run_boss_fci()`, SEM fitting helpers, and data prep utilities.
+- **`bindings/tetrad_bindings.cpp`** — nanobind module exposing `run_pc_raw()`, `run_fges_raw()`, `run_gfci_raw()`, `run_boss_raw()`, `run_boss_fci_raw()`, `run_grasp_raw()`, `run_grasp_fci_raw()` and `SearchResult` struct. Automatic numpy ↔ Eigen conversion.
+- **`python/tetrad_port/__init__.py`** — `TetradPort` facade class with `run_pc()`, `run_fges()`, `run_gfci()`, `run_boss()`, `run_boss_fci()`, `run_grasp()`, `run_grasp_fci()`, SEM fitting helpers, and data prep utilities.
 - Build uses scikit-build-core (configured in `pyproject.toml`).
 
 ### Tests (`tests/`)
 
-Catch2 v3.5.2 framework. Test files mirror source structure: `test_node_edge.cpp`, `test_graph.cpp`, `test_choice_generator.cpp`, `test_fisher_z.cpp`, `test_fas.cpp`, `test_meek_rules.cpp`, `test_pc.cpp`, `test_knowledge.cpp`, `test_sem_bic_score.cpp`, `test_fges.cpp`, `test_gfci.cpp`, `test_boss.cpp`, `test_boss_fci.cpp`. Python bindings tested with pytest in `test_python_bindings.py`.
+Catch2 v3.5.2 framework. Test files mirror source structure: `test_node_edge.cpp`, `test_graph.cpp`, `test_choice_generator.cpp`, `test_fisher_z.cpp`, `test_fas.cpp`, `test_meek_rules.cpp`, `test_pc.cpp`, `test_knowledge.cpp`, `test_sem_bic_score.cpp`, `test_fges.cpp`, `test_gfci.cpp`, `test_boss.cpp`, `test_boss_fci.cpp`, `test_grasp.cpp`, `test_grasp_fci.cpp`. Python bindings tested with pytest in `test_python_bindings.py`.
 
 ## Coding Conventions
 
@@ -106,13 +111,23 @@ This is a port from Java Tetrad 7.6.8. Key source mappings for implemented code:
 | `permutation_search.h/cpp` | `search/PermutationSearch.java` |
 | `star_fci.h/cpp` | `search/StarFci.java` |
 | `boss_fci.h/cpp` | `search/BossFci.java` |
+| `teyssier_scorer.h/cpp` | `search/utils/TeyssierScorer.java` |
+| `grasp.h/cpp` | `search/Grasp.java` |
+| `grasp_fci.h/cpp` | `search/GraspFci.java` |
 
-## Known Differences from Java (Current PC Port)
+## Java vs C++ Comparison Testing
+
+`tests/java_oracle.py` — thin jpype wrapper around Tetrad 7.6.8 JAR. Requires the JAR at `jars/tetrad-gui-7.6.8-launch.jar` (gitignored) and jpype (`pip install jpype1`). Also requires Java 21+.
+
+`tests/test_java_comparison.py` — 18 pytest tests comparing Java and C++ outputs across all 7 algorithms using adjacency Jaccard and edge-type agreement metrics. Auto-skips if JAR or jpype is unavailable.
+
+## Known Differences from Java (Resolved)
 
 All previously identified deviations from Java 7.6.8 have been resolved:
 
-- Phase 1: MeekRules R2/R3 early-return, PRIORITIZE_EXISTING collider orientation, FAS `possibleParents` knowledge checks
-- Phase 2: Full Knowledge class, `pcOrientbk()`, MeekRules R4, `colliderAllowed()` knowledge check in collider orientation
+- **PC**: MeekRules R2/R3 early-return, PRIORITIZE_EXISTING collider orientation, FAS `possibleParents` knowledge checks, full Knowledge class, `pcOrientbk()`, MeekRules R4, `colliderAllowed()` knowledge check
+- **FGES/BOSS/GRaSP**: `MeekRules::orientImplied` DAG→CPDAG conversion (`revertToUnshieldedColliders` flag was declared but never executed — fixed by implementing the full revert-colliders-then-undirect-then-re-orient logic)
+- **GFCI**: Missing possible d-sep removal step (`Paths.possibleDsep` BFS + sepset testing from candidate list) that Java performs between the first collider orientation pass and the FCI rules — added as Step 6 with a second collider orientation pass (Step 7) after
 
 ## Implemented Algorithms
 
@@ -123,16 +138,7 @@ All previously identified deviations from Java 7.6.8 have been resolved:
 | **GFCI** | Hybrid (score + constraint) | PAG | Complete |
 | **BOSS** | Permutation-based (BIC) | CPDAG | Complete |
 | **BOSS-FCI** | BOSS + FCI rules | PAG | Complete |
+| **GRaSP** | Permutation-based (tuck DFS) | CPDAG | Complete |
+| **GRaSP-FCI** | GRaSP + FCI rules | PAG | Complete |
 
-## Target Algorithm Roadmap
-
-Remaining algorithms to port (all from `tetrad-7.6.8/`):
-
-1. **GRASP** — `search/Grasp.java` (532 lines). Requires: TeyssierScorer, Score.
-2. **GRASP-FCI** — `search/GraspFci.java` (300 lines). Requires: Grasp, FciOrient (ported), StarFci (ported).
-
-Shared infrastructure still needed: TeyssierScorer.
-
-The `StarFci` abstract base class is already ported, so GRASP-FCI only needs GRASP + a thin subclass (like BossFci).
-
-See `IMPLEMENTATION_PLAN.md` for the original PC vertical slice plan.
+All target algorithms from the roadmap have been implemented. See `IMPLEMENTATION_PLAN.md` for the original PC vertical slice plan.

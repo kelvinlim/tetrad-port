@@ -1,7 +1,8 @@
 """
 tetrad_port: Python bindings for causal discovery algorithms from CMU's Tetrad.
 
-Provides PC, FGES, GFCI, BOSS, and BOSS-FCI algorithms with a simple facade API:
+Provides PC, FGES, GFCI, BOSS, BOSS-FCI, GRaSP, and GRaSP-FCI algorithms
+with a simple facade API:
 
     tp = TetradPort()
     results, graph_info = tp.run_pc(df, alpha=0.05)
@@ -9,6 +10,8 @@ Provides PC, FGES, GFCI, BOSS, and BOSS-FCI algorithms with a simple facade API:
     results, graph_info = tp.run_gfci(df, alpha=0.05)
     results, graph_info = tp.run_boss(df, penalty_discount=1.0)
     results, graph_info = tp.run_boss_fci(df, alpha=0.05)
+    results, graph_info = tp.run_grasp(df, penalty_discount=1.0)
+    results, graph_info = tp.run_grasp_fci(df, alpha=0.05)
 """
 
 from __future__ import annotations
@@ -20,6 +23,7 @@ import pandas as pd
 
 from tetrad_port._tetrad_cpp import (
     run_pc_raw, run_fges_raw, run_gfci_raw, run_boss_raw, run_boss_fci_raw,
+    run_grasp_raw, run_grasp_fci_raw,
     PcResult, SearchResult, Knowledge,
 )
 
@@ -37,6 +41,8 @@ class TetradPort:
     - **GFCI**: Hybrid (score + constraint), returns a PAG. Handles latent confounders.
     - **BOSS**: Permutation-based (BIC), returns a CPDAG. High precision, fast for large sparse graphs.
     - **BOSS-FCI**: BOSS + FCI orientation rules, returns a PAG. Handles latent confounders.
+    - **GRaSP**: Permutation-based (tuck DFS), returns a CPDAG. Very high precision.
+    - **GRaSP-FCI**: GRaSP + FCI orientation rules, returns a PAG. Handles latent confounders.
 
     Example
     -------
@@ -46,6 +52,8 @@ class TetradPort:
     >>> results, graph_info = tp.run_gfci(df, alpha=0.05)
     >>> results, graph_info = tp.run_boss(df)
     >>> results, graph_info = tp.run_boss_fci(df, alpha=0.05)
+    >>> results, graph_info = tp.run_grasp(df)
+    >>> results, graph_info = tp.run_grasp_fci(df, alpha=0.05)
     """
 
     def __init__(self, verbose: bool = False):
@@ -430,6 +438,184 @@ class TetradPort:
         }
 
         graph_info = self._parse_edges_to_graph_info(bfci_result.edges, bfci_result.nodes)
+        return results, graph_info
+
+    # ----------------------------------------------------------------
+    # Core: run_grasp
+    # ----------------------------------------------------------------
+
+    def run_grasp(
+        self,
+        df: pd.DataFrame,
+        penalty_discount: float = 1.0,
+        depth: int = 3,
+        uncovered_depth: int = 1,
+        non_singular_depth: int = 1,
+        ordered: bool = False,
+        num_starts: int = 1,
+        use_data_order: bool = True,
+        knowledge: Optional[Knowledge] = None,
+        verbose: Optional[bool] = None,
+    ) -> tuple[dict[str, Any], dict[str, Any]]:
+        """
+        Run the GRaSP (Greedy Relaxations of SP) algorithm.
+
+        GRaSP searches permutation space using depth-first tuck moves
+        with backtracking to find optimal variable orderings. Very high
+        adjacency and orientation precision for linear Gaussian data.
+
+        Parameters
+        ----------
+        df : pd.DataFrame
+            Continuous data. All columns must be numeric.
+        penalty_discount : float
+            BIC penalty multiplier. 1.0 = standard BIC.
+        depth : int
+            Max DFS depth for singular tucks (default 3).
+        uncovered_depth : int
+            Max depth for uncovered tucks (default 1).
+        non_singular_depth : int
+            Max depth for non-singular tucks (default 1).
+        ordered : bool
+            Enforce GRaSP0/1/2 ordering (default False).
+        num_starts : int
+            Number of random restarts. Best result is returned.
+        use_data_order : bool
+            Use data column order for the first run (default True).
+        knowledge : Knowledge or None
+            Background knowledge (temporal tiers, forbidden/required edges).
+        verbose : bool or None
+            Override instance-level verbose setting.
+
+        Returns
+        -------
+        results : dict
+            Keys: 'edges', 'nodes', 'num_edges', 'num_nodes',
+                  'penalty_discount'
+        graph_info : dict
+            Keys: 'adjacency', 'directed_edges', 'undirected_edges'
+        """
+        v = verbose if verbose is not None else self.verbose
+        data, col_names = self._validate_and_extract(df)
+        k = knowledge if knowledge is not None else Knowledge()
+
+        grasp_result: SearchResult = run_grasp_raw(
+            data=data, col_names=col_names,
+            penalty_discount=penalty_discount,
+            depth=depth, uncovered_depth=uncovered_depth,
+            non_singular_depth=non_singular_depth,
+            ordered=ordered, num_starts=num_starts,
+            use_data_order=use_data_order,
+            verbose=v, knowledge=k,
+        )
+
+        results = {
+            "edges": list(grasp_result.edges),
+            "nodes": list(grasp_result.nodes),
+            "num_edges": grasp_result.num_edges,
+            "num_nodes": grasp_result.num_nodes,
+            "penalty_discount": penalty_discount,
+        }
+
+        graph_info = self._parse_edges_to_graph_info(grasp_result.edges, grasp_result.nodes)
+        return results, graph_info
+
+    # ----------------------------------------------------------------
+    # Core: run_grasp_fci
+    # ----------------------------------------------------------------
+
+    def run_grasp_fci(
+        self,
+        df: pd.DataFrame,
+        alpha: float = 0.05,
+        penalty_discount: float = 1.0,
+        depth: int = -1,
+        grasp_depth: int = 3,
+        uncovered_depth: int = 1,
+        non_singular_depth: int = 1,
+        ordered: bool = False,
+        complete_rule_set: bool = True,
+        max_disc_path_length: int = -1,
+        num_starts: int = 1,
+        use_data_order: bool = True,
+        knowledge: Optional[Knowledge] = None,
+        verbose: Optional[bool] = None,
+    ) -> tuple[dict[str, Any], dict[str, Any]]:
+        """
+        Run the GRaSP-FCI algorithm.
+
+        GRaSP-FCI combines the GRaSP algorithm with FCI orientation rules
+        to handle latent (unmeasured) confounders. Returns a PAG.
+
+        Parameters
+        ----------
+        df : pd.DataFrame
+            Continuous data. All columns must be numeric.
+        alpha : float
+            Significance level for conditional independence tests.
+        penalty_discount : float
+            BIC penalty multiplier for the GRaSP scoring phase.
+        depth : int
+            Maximum conditioning set size for FCI. -1 for unlimited.
+        grasp_depth : int
+            Max DFS depth for GRaSP tucks (default 3).
+        uncovered_depth : int
+            Max depth for uncovered tucks (default 1).
+        non_singular_depth : int
+            Max depth for non-singular tucks (default 1).
+        ordered : bool
+            Enforce GRaSP0/1/2 ordering (default False).
+        complete_rule_set : bool
+            Use Zhang's complete rules R1-R10 (default True).
+        max_disc_path_length : int
+            Maximum discriminating path length for R4. -1 unlimited.
+        num_starts : int
+            Number of random restarts for GRaSP (default 1).
+        use_data_order : bool
+            Use data column order for the first run (default True).
+        knowledge : Knowledge or None
+            Background knowledge (temporal tiers, forbidden/required edges).
+        verbose : bool or None
+            Override instance-level verbose setting.
+
+        Returns
+        -------
+        results : dict
+            Keys: 'edges', 'nodes', 'num_edges', 'num_nodes',
+                  'alpha', 'penalty_discount'
+        graph_info : dict
+            Keys: 'adjacency', 'directed_edges', 'undirected_edges',
+                  'bidirected_edges', 'partially_oriented_edges',
+                  'circle_edges'
+        """
+        v = verbose if verbose is not None else self.verbose
+        data, col_names = self._validate_and_extract(df)
+        k = knowledge if knowledge is not None else Knowledge()
+
+        gfci_result: SearchResult = run_grasp_fci_raw(
+            data=data, col_names=col_names,
+            alpha=alpha, penalty_discount=penalty_discount,
+            depth=depth, grasp_depth=grasp_depth,
+            uncovered_depth=uncovered_depth,
+            non_singular_depth=non_singular_depth,
+            ordered=ordered,
+            complete_rule_set=complete_rule_set,
+            max_disc_path_length=max_disc_path_length,
+            num_starts=num_starts,
+            use_data_order=use_data_order,
+            verbose=v, knowledge=k,
+        )
+
+        results = {
+            "edges": list(gfci_result.edges),
+            "nodes": list(gfci_result.nodes),
+            "num_edges": gfci_result.num_edges,
+            "num_nodes": gfci_result.num_nodes,
+            "alpha": alpha,
+            "penalty_discount": penalty_discount,
+        }
+
+        graph_info = self._parse_edges_to_graph_info(gfci_result.edges, gfci_result.nodes)
         return results, graph_info
 
     # ----------------------------------------------------------------

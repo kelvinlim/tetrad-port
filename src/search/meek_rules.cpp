@@ -6,8 +6,77 @@ namespace tetrad {
 
 std::set<NodePtr> MeekRules::orientImplied(Graph& graph) {
     std::set<NodePtr> visited;
-    bool oriented = true;
 
+    if (revertToUnshieldedColliders_) {
+        // Step 1: Collect unshielded colliders from current directed structure.
+        // A triple A→B←C where A-C are not adjacent is an unshielded collider.
+        struct Triple { NodePtr a, b, c; };
+        std::vector<Triple> colliders;
+
+        for (const auto& b : graph.getNodes()) {
+            auto parents = graph.getParents(b);
+            for (size_t i = 0; i < parents.size(); i++) {
+                for (size_t j = i + 1; j < parents.size(); j++) {
+                    const auto& a = parents[i];
+                    const auto& c = parents[j];
+                    if (!graph.isAdjacentTo(a, c)) {
+                        colliders.push_back({a, b, c});
+                    }
+                }
+            }
+        }
+
+        // Step 2: Un-direct all directed edges (convert to undirected),
+        // except those required by knowledge.
+        std::vector<Edge> toUndirect;
+        for (const auto& e : graph.getEdges()) {
+            if (!isUndirectedEdge(e)) {
+                // Only un-direct TAIL→ARROW (standard directed) edges
+                if (e.getEndpoint1() == Endpoint::TAIL && e.getEndpoint2() == Endpoint::ARROW) {
+                    const auto& tail = e.getNode1();
+                    const auto& head = e.getNode2();
+                    if (knowledge_.isEmpty() || !knowledge_.isRequired(tail->getName(), head->getName())) {
+                        toUndirect.push_back(e);
+                    }
+                } else if (e.getEndpoint1() == Endpoint::ARROW && e.getEndpoint2() == Endpoint::TAIL) {
+                    const auto& tail = e.getNode2();
+                    const auto& head = e.getNode1();
+                    if (knowledge_.isEmpty() || !knowledge_.isRequired(tail->getName(), head->getName())) {
+                        toUndirect.push_back(e);
+                    }
+                }
+            }
+        }
+        for (const auto& e : toUndirect) {
+            graph.removeEdge(e);
+            graph.addUndirectedEdge(e.getNode1(), e.getNode2());
+        }
+
+        // Step 3: Re-orient the unshielded colliders A→B←C.
+        for (const auto& t : colliders) {
+            if (!graph.isAdjacentTo(t.a, t.b) || !graph.isAdjacentTo(t.c, t.b)) continue;
+            if (!isArrowheadAllowed(t.a, t.b, knowledge_)) continue;
+            if (!isArrowheadAllowed(t.c, t.b, knowledge_)) continue;
+
+            Edge ab = graph.getEdge(t.a, t.b);
+            if (!ab.isNull() && isUndirectedEdge(ab)) {
+                graph.removeEdge(ab);
+                graph.addDirectedEdge(t.a, t.b);
+                visited.insert(t.a);
+                visited.insert(t.b);
+            }
+            Edge cb = graph.getEdge(t.c, t.b);
+            if (!cb.isNull() && isUndirectedEdge(cb)) {
+                graph.removeEdge(cb);
+                graph.addDirectedEdge(t.c, t.b);
+                visited.insert(t.c);
+                visited.insert(t.b);
+            }
+        }
+    }
+
+    // Step 4: Propagate orientation via Meek rules R1–R4.
+    bool oriented = true;
     while (oriented) {
         oriented = false;
 
