@@ -66,7 +66,9 @@ class TetradOracle:
             )
 
         if not jpype.isJVMStarted():
-            jpype.startJVM(jvm_args, classpath=str(self._jar))
+            # Split jvm_args so each flag is a separate positional arg
+            args = jvm_args.split() if isinstance(jvm_args, str) else list(jvm_args)
+            jpype.startJVM(*args, classpath=str(self._jar))
 
         self._util = jpype.JPackage("java.util")
         self._td = jpype.JPackage("edu.cmu.tetrad.data")
