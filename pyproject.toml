@@ -4,7 +4,7 @@ build-backend = "scikit_build_core.build"
 
 [project]
 name = "tetrad-port"
-version = "0.2.1"
+version = "0.2.2"
 description = "C++ port of CMU's Tetrad causal discovery library with Python bindings"
 readme = "README.md"
 requires-python = ">=3.11"
