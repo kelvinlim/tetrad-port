@@ -43,8 +43,15 @@ private:
     Graph getMarkovCpdag();
 
     // Sepset finding: find a separating set from adj(x) or adj(y).
+    // Matches Java's sepsetSubsetOfAdjxOrAdjy: tries both, picks max p-value.
     std::set<NodePtr>* findSepset(const Graph& graph, const NodePtr& x, const NodePtr& y,
                                    const std::set<NodePtr>& containing);
+
+    // Helper: find first separating set from a single adjacency list.
+    std::pair<std::set<NodePtr>*, double> getSepsetFromAdj(
+        const NodePtr& x, const NodePtr& y,
+        const std::vector<NodePtr>& adj,
+        const std::set<NodePtr>& containing);
 
     // Sepset finding: find a separating set from an explicit candidate list.
     std::set<NodePtr>* findSepsetFromList(const Graph& graph, const NodePtr& x, const NodePtr& y,

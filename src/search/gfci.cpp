@@ -7,7 +7,6 @@
 #include <algorithm>
 #include <queue>
 #include <unordered_map>
-
 namespace tetrad {
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -104,12 +103,17 @@ static std::vector<NodePtr> computePossibleDsep(const Graph& graph,
     NodePair levelMarker;
     int distance = 0;
 
-    for (const auto& b : graph.getAdjacentNodes(x)) {
+    // Sort initial adjacencies by Java HashSet iteration order to replicate
+    // the BFS frontier ordering from Paths.possibleDsep (line 1605:
+    // new HashSet<>(graph.getAdjacentNodes(x))).
+    auto adjX = graph.getAdjacentNodes(x);
+    sortByJavaHashOrder(adjX, x);
+    for (const auto& b : adjX) {
         NodePair edge = {x, b};
         if (!markerSet) { levelMarker = edge; markerSet = true; }
         Q.push(edge);
         V.insert(edge);
-        previous[b].insert(x);
+        previous[x].insert(b);  // Java: addToSet(previous, b, x) → previous[x].add(b)
         msep.insert(b);
     }
 
@@ -131,9 +135,13 @@ static std::vector<NodePtr> computePossibleDsep(const Graph& graph,
             msep.insert(b);
         }
 
-        for (const auto& c : graph.getAdjacentNodes(b)) {
+        // Sort inner-loop adjacencies by Java HashSet order to match
+        // EdgeListGraph.getAdjacentNodes() iteration in Paths.java:1636.
+        auto adjB = graph.getAdjacentNodes(b);
+        sortByJavaHashOrder(adjB, b);
+        for (const auto& c : adjB) {
             if (*c == *a || *c == *x) continue;
-            previous[b].insert(c);
+            previous[c].insert(b);  // Java: addToSet(previous, b, c) → previous[c].add(b)
 
             if (graph.isDefCollider(a, b, c) || graph.isAdjacentTo(a, c)) {
                 NodePair u = {b, c};
@@ -180,6 +188,7 @@ Graph Gfci::search() {
     // Step 3: Extra edge removal
     auto edges = pag.getEdges();
     sortEdgesByJavaHashOrder(edges, static_cast<int>(edges.size()));
+
     for (const auto& edge : edges) {
         const auto& a = edge.getNode1();
         const auto& c = edge.getNode2();
@@ -230,6 +239,7 @@ Graph Gfci::search() {
     // Matches Java's Gfci.java: try possibleDsep from a first, then from c.
     auto pagEdges = pag.getEdges();
     sortEdgesByJavaHashOrder(pagEdges, static_cast<int>(pagEdges.size()));
+
     for (const auto& edge : pagEdges) {
         const auto& a = edge.getNode1();
         const auto& c = edge.getNode2();
@@ -297,10 +307,52 @@ Graph Gfci::getMarkovCpdag() {
     return fges.search();
 }
 
+// Helper: find first separating set from a single adjacency list.
+// Returns (sepset, p-value) or (nullptr, -1) if none found.
+// Matches Java's getSepset() with useMaxP=false (greedy, first-found).
+std::pair<std::set<NodePtr>*, double> Gfci::getSepsetFromAdj(
+    const NodePtr& x, const NodePtr& y,
+    const std::vector<NodePtr>& adj,
+    const std::set<NodePtr>& containing) {
+    int maxDepth = depth_;
+    int d = (maxDepth < 0) ? static_cast<int>(adj.size())
+                           : std::min(maxDepth, static_cast<int>(adj.size()));
+    SublistGenerator gen(static_cast<int>(adj.size()), d);
+    bool valid;
+    while (true) {
+        const auto& choice = gen.next(valid);
+        if (!valid) break;
+
+        std::set<NodePtr> subset;
+        for (int idx : choice) subset.insert(adj[idx]);
+
+        bool containsAll = true;
+        for (const auto& c : containing) {
+            if (!subset.count(c)) { containsAll = false; break; }
+        }
+        if (!containsAll) continue;
+
+        auto result = test_.checkIndependence(x, y, subset);
+        if (result.isIndependent()) {
+            sepsetStorage_.push_back(std::make_unique<std::set<NodePtr>>(subset));
+            return std::make_pair(sepsetStorage_.back().get(), result.pValue);
+        }
+    }
+    return std::make_pair(nullptr, -1.0);
+}
+
+// Matches Java's sepsetSubsetOfAdjxOrAdjy: try both adj(x) and adj(y),
+// if both find a sepset pick the one with higher p-value.
 std::set<NodePtr>* Gfci::findSepset(const Graph& graph, const NodePtr& x, const NodePtr& y,
                                      const std::set<NodePtr>& containing) {
     auto adjX = graph.getAdjacentNodes(x);
     auto adjY = graph.getAdjacentNodes(y);
+
+    // Sort BEFORE filtering: Java's getAdjacentNodes() builds a HashSet from ALL
+    // neighbors, then adjx.remove(y) just removes from the ArrayList. The HashSet
+    // capacity (and thus bucket assignments) depends on the full neighbor count.
+    sortByJavaHashOrder(adjX, x);
+    sortByJavaHashOrder(adjY, y);
 
     adjX.erase(std::remove_if(adjX.begin(), adjX.end(),
         [&](const NodePtr& n) { return *n == *y; }), adjX.end());
@@ -312,59 +364,15 @@ std::set<NodePtr>* Gfci::findSepset(const Graph& graph, const NodePtr& x, const 
     adjY.erase(std::remove_if(adjY.begin(), adjY.end(),
         [](const NodePtr& n) { return n->getNodeType() == NodeType::LATENT; }), adjY.end());
 
-    // Sort adjacency lists into Java's HashSet<Node> iteration order so that
-    // SublistGenerator produces the same first-found separating set as Java.
-    sortByJavaHashOrder(adjX, x);
-    sortByJavaHashOrder(adjY, y);
+    auto [sepset1, p1] = getSepsetFromAdj(x, y, adjX, containing);
+    auto [sepset2, p2] = getSepsetFromAdj(y, x, adjY, containing);
 
-    int maxDepth = depth_;
+    if (!sepset1 && !sepset2) return nullptr;
+    if (sepset1 && !sepset2) return sepset1;
+    if (!sepset1) return sepset2;
 
-    int depthX = (maxDepth < 0) ? static_cast<int>(adjX.size()) : std::min(maxDepth, static_cast<int>(adjX.size()));
-    SublistGenerator genX(static_cast<int>(adjX.size()), depthX);
-    bool valid;
-    while (true) {
-        const auto& choice = genX.next(valid);
-        if (!valid) break;
-
-        std::set<NodePtr> subset;
-        for (int idx : choice) subset.insert(adjX[idx]);
-
-        bool containsAll = true;
-        for (const auto& c : containing) {
-            if (!subset.count(c)) { containsAll = false; break; }
-        }
-        if (!containsAll) continue;
-
-        std::vector<NodePtr> condVec(subset.begin(), subset.end());
-        if (test_.isIndependent(x, y, condVec)) {
-            sepsetStorage_.push_back(std::make_unique<std::set<NodePtr>>(subset));
-            return sepsetStorage_.back().get();
-        }
-    }
-
-    int depthY = (maxDepth < 0) ? static_cast<int>(adjY.size()) : std::min(maxDepth, static_cast<int>(adjY.size()));
-    SublistGenerator genY(static_cast<int>(adjY.size()), depthY);
-    while (true) {
-        const auto& choice = genY.next(valid);
-        if (!valid) break;
-
-        std::set<NodePtr> subset;
-        for (int idx : choice) subset.insert(adjY[idx]);
-
-        bool containsAll = true;
-        for (const auto& c : containing) {
-            if (!subset.count(c)) { containsAll = false; break; }
-        }
-        if (!containsAll) continue;
-
-        std::vector<NodePtr> condVec(subset.begin(), subset.end());
-        if (test_.isIndependent(x, y, condVec)) {
-            sepsetStorage_.push_back(std::make_unique<std::set<NodePtr>>(subset));
-            return sepsetStorage_.back().get();
-        }
-    }
-
-    return nullptr;
+    // Both found: pick higher p-value (matches Java's sepsetSubsetOfAdjxOrAdjy).
+    return (p1 > p2) ? sepset1 : sepset2;
 }
 
 std::set<NodePtr>* Gfci::findSepsetFromList(const Graph& graph, const NodePtr& x, const NodePtr& y,

@@ -475,7 +475,7 @@ class TestBostonKnowledgeComparison:
         df, kn, kn_java = boston
         java = oracle.run("gfci", df, alpha=0.01, penalty_discount=1.0, knowledge=kn_java)
         cpp_r, _ = cpp.run_gfci(df, alpha=0.01, penalty_discount=1.0, knowledge=kn)
-        assert_similarity("gfci/boston", java, cpp_r["edges"], min_jaccard=0.90, min_type_agree=0.95)
+        assert_similarity("gfci/boston", java, cpp_r["edges"], min_jaccard=1.0, min_type_agree=1.0)
 
     def test_boss_fci_boston(self, oracle, cpp, boston):
         df, kn, kn_java = boston

@@ -101,6 +101,11 @@ std::set<NodePtr>* StarFci::findSepset(const Graph& graph, const NodePtr& x, con
     auto adjX = graph.getAdjacentNodes(x);
     auto adjY = graph.getAdjacentNodes(y);
 
+    // Sort BEFORE filtering: Java's getAdjacentNodes() builds a HashSet from ALL
+    // neighbors; the capacity depends on the full count.
+    sortByJavaHashOrder(adjX, x);
+    sortByJavaHashOrder(adjY, y);
+
     // Remove y from adjX, x from adjY
     adjX.erase(std::remove_if(adjX.begin(), adjX.end(),
         [&](const NodePtr& n) { return *n == *y; }), adjX.end());
@@ -112,11 +117,6 @@ std::set<NodePtr>* StarFci::findSepset(const Graph& graph, const NodePtr& x, con
         [](const NodePtr& n) { return n->getNodeType() == NodeType::LATENT; }), adjX.end());
     adjY.erase(std::remove_if(adjY.begin(), adjY.end(),
         [](const NodePtr& n) { return n->getNodeType() == NodeType::LATENT; }), adjY.end());
-
-    // Sort adjacency lists into Java's HashSet<Node> iteration order so that
-    // SublistGenerator produces the same first-found separating set as Java.
-    sortByJavaHashOrder(adjX, x);
-    sortByJavaHashOrder(adjY, y);
 
     int maxDepth = depth_;
 
