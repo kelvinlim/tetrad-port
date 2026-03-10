@@ -16,6 +16,7 @@
 #include "search/boss_fci.h"
 #include "search/grasp.h"
 #include "search/grasp_fci.h"
+#include "search/generic_fci.h"
 #include "graph/graph.h"
 #include "graph/edge.h"
 #include "graph/node.h"
@@ -337,8 +338,100 @@ static SearchResult run_grasp_fci_raw(
     return graph_to_result(g);
 }
 
+// Helper: run a CPDAG-producing algorithm and return the graph
+static Graph run_initial_cpdag(
+    const std::string& algo,
+    DataSet& ds,
+    SemBicScore& score,
+    double alpha,
+    const Knowledge& knowledge,
+    bool verbose
+) {
+    if (algo == "pc") {
+        IndTestFisherZ test(ds, alpha);
+        Pc pc(&test);
+        pc.setDepth(-1);
+        pc.setVerbose(verbose);
+        if (!knowledge.isEmpty()) pc.setKnowledge(knowledge);
+        return pc.search();
+    } else if (algo == "fges") {
+        Fges fges(score);
+        fges.setFaithfulnessAssumed(true);
+        fges.setVerbose(verbose);
+        if (!knowledge.isEmpty()) fges.setKnowledge(knowledge);
+        return fges.search();
+    } else if (algo == "boss") {
+        Boss boss(score);
+        boss.setUseBes(false);
+        boss.setNumStarts(1);
+        boss.setVerbose(verbose);
+        if (!knowledge.isEmpty()) boss.setKnowledge(knowledge);
+        PermutationSearch search(boss);
+        if (!knowledge.isEmpty()) search.setKnowledge(knowledge);
+        return search.search();
+    } else if (algo == "grasp") {
+        Grasp grasp(score);
+        grasp.setDepth(3);
+        grasp.setUncoveredDepth(1);
+        grasp.setNonSingularDepth(1);
+        grasp.setOrdered(false);
+        grasp.setNumStarts(1);
+        grasp.setUseDataOrder(true);
+        grasp.setVerbose(verbose);
+        if (!knowledge.isEmpty()) grasp.setKnowledge(knowledge);
+        auto variables = score.getVariables();
+        grasp.bestOrder(variables);
+        return grasp.getGraph(true);
+    } else {
+        throw std::invalid_argument(
+            "Unknown initial algorithm: '" + algo + "'. "
+            "Must be one of: pc, fges, boss, grasp"
+        );
+    }
+}
+
+static SearchResult run_fci_raw(
+    const Eigen::MatrixXd& data,
+    const std::vector<std::string>& col_names,
+    const std::string& initial_algorithm,
+    double alpha,
+    double penalty_discount,
+    int depth,
+    bool complete_rule_set,
+    int max_disc_path_length,
+    bool verbose,
+    const Knowledge& knowledge = Knowledge()
+) {
+    if (static_cast<int>(col_names.size()) != data.cols()) {
+        throw std::invalid_argument(
+            "Number of column names (" + std::to_string(col_names.size()) +
+            ") must match number of columns (" + std::to_string(data.cols()) + ")"
+        );
+    }
+
+    DataSet ds(data, col_names);
+    SemBicScore score(ds);
+    score.setPenaltyDiscount(penalty_discount);
+
+    // Step 1: Run initial algorithm to get CPDAG
+    Graph cpdag = run_initial_cpdag(initial_algorithm, ds, score, alpha, knowledge, verbose);
+
+    // Step 2: Pipe through GenericFci (StarFci pipeline)
+    IndTestFisherZ test(ds, alpha);
+    GenericFci fci(test, cpdag);
+    fci.setDepth(depth);
+    fci.setCompleteRuleSetUsed(complete_rule_set);
+    fci.setMaxDiscriminatingPathLength(max_disc_path_length);
+    fci.setVerbose(verbose);
+    if (!knowledge.isEmpty()) fci.setKnowledge(knowledge);
+
+    Graph g = fci.search();
+
+    return graph_to_result(g);
+}
+
 NB_MODULE(_tetrad_cpp, m) {
-    m.doc() = "C++ tetrad-port bindings: PC, FGES, GFCI, BOSS, BOSS-FCI, GRaSP, and GRaSP-FCI algorithms for causal discovery";
+    m.doc() = "C++ tetrad-port bindings: PC, FGES, GFCI, BOSS, BOSS-FCI, GRaSP, GRaSP-FCI, and composable FCI algorithms for causal discovery";
 
     nb::class_<Knowledge>(m, "Knowledge")
         .def(nb::init<>())
@@ -580,6 +673,37 @@ NB_MODULE(_tetrad_cpp, m) {
         "    max_disc_path_length: max discriminating path length (-1 unlimited)\n"
         "    num_starts: number of random restarts (default 1)\n"
         "    use_data_order: use data column order for first run (default True)\n"
+        "    verbose: print progress to stdout\n"
+        "    knowledge: background knowledge (Knowledge object)\n\n"
+        "Returns:\n"
+        "    SearchResult with edges (PAG edge strings) and nodes"
+    );
+
+    m.def("run_fci_raw", &run_fci_raw,
+        nb::arg("data"),
+        nb::arg("col_names"),
+        nb::arg("initial_algorithm") = "fges",
+        nb::arg("alpha") = 0.05,
+        nb::arg("penalty_discount") = 1.0,
+        nb::arg("depth") = -1,
+        nb::arg("complete_rule_set") = true,
+        nb::arg("max_disc_path_length") = -1,
+        nb::arg("verbose") = false,
+        nb::arg("knowledge") = Knowledge(),
+        "Run any CPDAG algorithm + FCI orientation rules to produce a PAG.\n\n"
+        "This is a composable FCI pipeline: run an initial CPDAG-producing\n"
+        "algorithm (PC, FGES, BOSS, or GRaSP), then apply the *-FCI pipeline\n"
+        "(edge removal, collider orientation, FCI rules R1-R10) to handle\n"
+        "latent confounders.\n\n"
+        "Args:\n"
+        "    data: numpy array (n_samples x n_variables)\n"
+        "    col_names: list of variable names\n"
+        "    initial_algorithm: 'pc', 'fges', 'boss', or 'grasp'\n"
+        "    alpha: significance level for independence tests\n"
+        "    penalty_discount: BIC penalty multiplier (for score-based algos)\n"
+        "    depth: maximum conditioning set size (-1 for unlimited)\n"
+        "    complete_rule_set: use Zhang's complete rules R1-R10 (default True)\n"
+        "    max_disc_path_length: max discriminating path length (-1 unlimited)\n"
         "    verbose: print progress to stdout\n"
         "    knowledge: background knowledge (Knowledge object)\n\n"
         "Returns:\n"

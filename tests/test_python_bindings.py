@@ -327,6 +327,50 @@ class TestDictKnowledge:
 # ----------------------------------------------------------------
 
 
+class TestRunFci:
+    """Tests for the composable run_fci() method."""
+
+    def test_run_fci_default(self, tp, chain_data):
+        results, gi = tp.run_fci(chain_data, alpha=0.05)
+        assert results["num_edges"] >= 1
+        assert results["initial_algorithm"] == "fges"
+        assert set(results["nodes"]) == {"X", "Y", "Z"}
+
+    def test_run_fci_with_pc(self, tp, chain_data):
+        results, gi = tp.run_fci(chain_data, initial_algorithm="pc", alpha=0.05)
+        assert results["num_edges"] >= 1
+        assert results["initial_algorithm"] == "pc"
+
+    def test_run_fci_with_boss(self, tp, chain_data):
+        results, gi = tp.run_fci(chain_data, initial_algorithm="boss", alpha=0.05)
+        assert results["num_edges"] >= 1
+        assert results["initial_algorithm"] == "boss"
+
+    def test_run_fci_with_grasp(self, tp, chain_data):
+        results, gi = tp.run_fci(chain_data, initial_algorithm="grasp", alpha=0.05)
+        assert results["num_edges"] >= 1
+        assert results["initial_algorithm"] == "grasp"
+
+    def test_run_fci_via_dispatcher(self, tp, chain_data):
+        results, gi = tp.run(chain_data, algorithm="fci", initial_algorithm="fges", alpha=0.05)
+        assert results["num_edges"] >= 1
+        assert results["initial_algorithm"] == "fges"
+
+    def test_run_fci_unknown_initial(self, tp, chain_data):
+        with pytest.raises(ValueError, match="Unknown initial algorithm"):
+            tp.run_fci(chain_data, initial_algorithm="unknown")
+
+    def test_run_fci_returns_pag_edges(self, tp, latent_common_cause_data):
+        results, gi = tp.run_fci(latent_common_cause_data, initial_algorithm="fges", alpha=0.05)
+        # PAG should have edges (may include o->, o-o, -->, <->, ---)
+        assert results["num_edges"] >= 1
+
+    def test_run_fci_with_knowledge(self, tp, chain_data):
+        k = {"forbiddirect": [("X", "Y")]}
+        results, _ = tp.run_fci(chain_data, initial_algorithm="pc", alpha=0.05, knowledge=k)
+        assert "X --> Y" not in results["edges"]
+
+
 class TestPagEdgeTypes:
     def test_partially_oriented_edges_are_tuples_of_two(self, tp, latent_common_cause_data):
         _, graph_info = tp.run(latent_common_cause_data, algorithm="gfci", alpha=0.05)

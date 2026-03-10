@@ -1,8 +1,8 @@
 """
 tetrad_port: Python bindings for causal discovery algorithms from CMU's Tetrad.
 
-Provides PC, FGES, GFCI, BOSS, BOSS-FCI, GRaSP, and GRaSP-FCI algorithms
-with a simple facade API:
+Provides PC, FGES, GFCI, BOSS, BOSS-FCI, GRaSP, GRaSP-FCI, and composable
+FCI algorithms with a simple facade API:
 
     tp = TetradPort()
     results, graph_info = tp.run_pc(df, alpha=0.05)
@@ -12,6 +12,7 @@ with a simple facade API:
     results, graph_info = tp.run_boss_fci(df, alpha=0.05)
     results, graph_info = tp.run_grasp(df, penalty_discount=1.0)
     results, graph_info = tp.run_grasp_fci(df, alpha=0.05)
+    results, graph_info = tp.run_fci(df, initial_algorithm="fges")
 """
 
 from __future__ import annotations
@@ -23,14 +24,17 @@ import pandas as pd
 
 from tetrad_port._tetrad_cpp import (
     run_pc_raw, run_fges_raw, run_gfci_raw, run_boss_raw, run_boss_fci_raw,
-    run_grasp_raw, run_grasp_fci_raw,
+    run_grasp_raw, run_grasp_fci_raw, run_fci_raw,
     PcResult, SearchResult, Knowledge,
 )
 
-__version__ = "0.2.1"
+__version__ = "0.3.0"
 __all__ = ["TetradPort", "Knowledge", "dict_to_knowledge"]
 
-ALGORITHMS = ("pc", "fges", "gfci", "boss", "boss_fci", "grasp", "grasp_fci")
+ALGORITHMS = ("pc", "fges", "gfci", "boss", "boss_fci", "grasp", "grasp_fci", "fci")
+
+# Initial algorithms that can be used with run_fci()
+FCI_INITIAL_ALGORITHMS = ("pc", "fges", "boss", "grasp")
 
 
 def dict_to_knowledge(knowledge_dict: Optional[dict]) -> Optional[Knowledge]:
@@ -88,6 +92,7 @@ class TetradPort:
     - **BOSS-FCI**: BOSS + FCI orientation rules, returns a PAG. Handles latent confounders.
     - **GRaSP**: Permutation-based (tuck DFS), returns a CPDAG. Very high precision.
     - **GRaSP-FCI**: GRaSP + FCI orientation rules, returns a PAG. Handles latent confounders.
+    - **FCI**: Composable: any CPDAG algorithm (PC, FGES, BOSS, GRaSP) + FCI rules, returns a PAG.
 
     Example
     -------
@@ -146,6 +151,7 @@ class TetradPort:
             "boss_fci": self.run_boss_fci,
             "grasp": self.run_grasp,
             "grasp_fci": self.run_grasp_fci,
+            "fci": self.run_fci,
         }
 
         algo = algorithm.lower()
@@ -721,6 +727,100 @@ class TetradPort:
         }
 
         graph_info = self._parse_edges_to_graph_info(gfci_result.edges, gfci_result.nodes)
+        return results, graph_info
+
+    # ----------------------------------------------------------------
+    # Core: run_fci (composable FCI pipeline)
+    # ----------------------------------------------------------------
+
+    def run_fci(
+        self,
+        df: pd.DataFrame,
+        initial_algorithm: str = "fges",
+        alpha: float = 0.05,
+        penalty_discount: float = 1.0,
+        depth: int = -1,
+        complete_rule_set: bool = True,
+        max_disc_path_length: int = -1,
+        knowledge: Union[Knowledge, dict, None] = None,
+        verbose: Optional[bool] = None,
+    ) -> tuple[dict[str, Any], dict[str, Any]]:
+        """
+        Run any CPDAG algorithm + FCI orientation rules to produce a PAG.
+
+        This is a composable FCI pipeline: first run an initial algorithm
+        to produce a CPDAG (skeleton with orientations), then apply the
+        *-FCI pipeline (extra edge removal, collider orientation, and FCI
+        rules R1-R10) to handle latent confounders.
+
+        Use ``initial_algorithm="pc"`` for classic constraint-based FCI.
+        Use ``initial_algorithm="fges"`` for a GFCI-like hybrid approach.
+
+        Parameters
+        ----------
+        df : pd.DataFrame
+            Continuous data. All columns must be numeric.
+        initial_algorithm : str
+            CPDAG algorithm to run first. One of "pc", "fges", "boss",
+            "grasp". Default is "fges".
+        alpha : float
+            Significance level for conditional independence tests
+            (used in both the initial algorithm and FCI rules).
+        penalty_discount : float
+            BIC penalty multiplier (for FGES, BOSS, GRaSP initial algos).
+        depth : int
+            Maximum conditioning set size for FCI. -1 for unlimited.
+        complete_rule_set : bool
+            Use Zhang's complete rules R1-R10 (default True).
+        max_disc_path_length : int
+            Maximum discriminating path length for R4. -1 for unlimited.
+        knowledge : Knowledge, dict, or None
+            Background knowledge. Can be a C++ Knowledge object or a dict
+            with keys 'addtemporal', 'forbiddirect', 'requiredirect'.
+        verbose : bool or None
+            Override instance-level verbose setting.
+
+        Returns
+        -------
+        results : dict
+            Keys: 'edges', 'nodes', 'num_edges', 'num_nodes',
+                  'alpha', 'penalty_discount', 'initial_algorithm'
+        graph_info : dict
+            Keys: 'adjacency', 'directed_edges', 'undirected_edges',
+                  'bidirected_edges', 'partially_oriented_edges',
+                  'circle_edges'
+        """
+        v = verbose if verbose is not None else self.verbose
+        data, col_names = self._validate_and_extract(df)
+        k = self._resolve_knowledge(knowledge)
+
+        algo = initial_algorithm.lower()
+        if algo not in FCI_INITIAL_ALGORITHMS:
+            raise ValueError(
+                f"Unknown initial algorithm: {initial_algorithm!r}. "
+                f"Must be one of {FCI_INITIAL_ALGORITHMS}."
+            )
+
+        fci_result: SearchResult = run_fci_raw(
+            data=data, col_names=col_names,
+            initial_algorithm=algo,
+            alpha=alpha, penalty_discount=penalty_discount,
+            depth=depth, complete_rule_set=complete_rule_set,
+            max_disc_path_length=max_disc_path_length,
+            verbose=v, knowledge=k,
+        )
+
+        results = {
+            "edges": list(fci_result.edges),
+            "nodes": list(fci_result.nodes),
+            "num_edges": fci_result.num_edges,
+            "num_nodes": fci_result.num_nodes,
+            "alpha": alpha,
+            "penalty_discount": penalty_discount,
+            "initial_algorithm": algo,
+        }
+
+        graph_info = self._parse_edges_to_graph_info(fci_result.edges, fci_result.nodes)
         return results, graph_info
 
     # ----------------------------------------------------------------

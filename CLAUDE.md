@@ -63,13 +63,13 @@ All code lives in `namespace tetrad`. Nodes use `std::shared_ptr<Node>` (`NodePt
 
 ### Python Layer
 
-- **`bindings/tetrad_bindings.cpp`** — nanobind module exposing `run_pc_raw()`, `run_fges_raw()`, `run_gfci_raw()`, `run_boss_raw()`, `run_boss_fci_raw()`, `run_grasp_raw()`, `run_grasp_fci_raw()` and `SearchResult` struct. Automatic numpy ↔ Eigen conversion.
-- **`python/tetrad_port/__init__.py`** — `TetradPort` facade class with `run_pc()`, `run_fges()`, `run_gfci()`, `run_boss()`, `run_boss_fci()`, `run_grasp()`, `run_grasp_fci()`, SEM fitting helpers, and data prep utilities.
+- **`bindings/tetrad_bindings.cpp`** — nanobind module exposing `run_pc_raw()`, `run_fges_raw()`, `run_gfci_raw()`, `run_boss_raw()`, `run_boss_fci_raw()`, `run_grasp_raw()`, `run_grasp_fci_raw()`, `run_fci_raw()` and `SearchResult` struct. Automatic numpy ↔ Eigen conversion.
+- **`python/tetrad_port/__init__.py`** — `TetradPort` facade class with `run_pc()`, `run_fges()`, `run_gfci()`, `run_boss()`, `run_boss_fci()`, `run_grasp()`, `run_grasp_fci()`, `run_fci()`, SEM fitting helpers, and data prep utilities.
 - Build uses scikit-build-core (configured in `pyproject.toml`).
 
 ### Tests (`tests/`)
 
-Catch2 v3.5.2 framework. Test files mirror source structure: `test_node_edge.cpp`, `test_graph.cpp`, `test_choice_generator.cpp`, `test_fisher_z.cpp`, `test_fas.cpp`, `test_meek_rules.cpp`, `test_pc.cpp`, `test_knowledge.cpp`, `test_sem_bic_score.cpp`, `test_fges.cpp`, `test_gfci.cpp`, `test_boss.cpp`, `test_boss_fci.cpp`, `test_grasp.cpp`, `test_grasp_fci.cpp`. Python bindings tested with pytest in `test_python_bindings.py`.
+Catch2 v3.5.2 framework. Test files mirror source structure: `test_node_edge.cpp`, `test_graph.cpp`, `test_choice_generator.cpp`, `test_fisher_z.cpp`, `test_fas.cpp`, `test_meek_rules.cpp`, `test_pc.cpp`, `test_knowledge.cpp`, `test_sem_bic_score.cpp`, `test_fges.cpp`, `test_gfci.cpp`, `test_boss.cpp`, `test_boss_fci.cpp`, `test_grasp.cpp`, `test_grasp_fci.cpp`, `test_generic_fci.cpp`. Python bindings tested with pytest in `test_python_bindings.py`.
 
 ## Coding Conventions
 
@@ -114,6 +114,7 @@ This is a port from Java Tetrad 7.6.8. Key source mappings for implemented code:
 | `teyssier_scorer.h/cpp` | `search/utils/TeyssierScorer.java` |
 | `grasp.h/cpp` | `search/Grasp.java` |
 | `grasp_fci.h/cpp` | `search/GraspFci.java` |
+| `generic_fci.h/cpp` | (composable FCI — no direct Java equivalent) |
 
 ## Java vs C++ Comparison Testing
 
@@ -140,5 +141,6 @@ All previously identified deviations from Java 7.6.8 have been resolved:
 | **BOSS-FCI** | BOSS + FCI rules | PAG | Complete |
 | **GRaSP** | Permutation-based (tuck DFS) | CPDAG | Complete |
 | **GRaSP-FCI** | GRaSP + FCI rules | PAG | Complete |
+| **FCI** | Composable: any CPDAG + FCI rules | PAG | Complete |
 
-All target algorithms from the roadmap have been implemented. See `IMPLEMENTATION_PLAN.md` for the original PC vertical slice plan.
+All target algorithms from the roadmap have been implemented, plus a composable FCI pipeline. See `IMPLEMENTATION_PLAN.md` for the original PC vertical slice plan.
