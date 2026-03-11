@@ -15,6 +15,7 @@ cmake-build-*/
 
 # tetrad source
 tetrad-7.6.8
+tetrad-7.6.3 
 
 fastcda
 fastcausal
