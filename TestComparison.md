@@ -1,6 +1,6 @@
 # Java vs C++ Comparison — Tetrad Port
 
-Comparison of **Tetrad 7.6.8 (Java)** against the **C++ port** across all implemented algorithms
+Comparison of **Tetrad 7.6.3 (Java)** against the **C++ port** across all implemented algorithms
 and datasets.
 
 ## Metrics

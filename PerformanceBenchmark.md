@@ -1,4 +1,4 @@
-# Performance Benchmark: C++ vs Java (Tetrad 7.6.8)
+# Performance Benchmark: C++ vs Java (Tetrad 7.6.3)
 
 ## Dataset
 
@@ -42,7 +42,7 @@
 ## Notes
 
 - C++ implementation uses tetrad_port (nanobind Python bindings to C++)
-- Java implementation uses Tetrad 7.6.8 JAR via jpype
+- Java implementation uses Tetrad 7.6.3 JAR via jpype
 - Speedup = Java time / C++ time (>1 means C++ is faster)
 - BOSS, GRaSP, and FCI variants use a 50-variable subset because permutation-based
   and latent-variable algorithms have super-linear complexity in the number of variables

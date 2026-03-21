@@ -106,4 +106,4 @@ Python bindings (`bindings/tetrad_bindings.cpp`) expose algorithms via nanobind.
 
 ## Reference
 
-Ported from [Tetrad 7.6.8](https://github.com/cmu-phil/tetrad) (Java). This version contains critical FciOrient correctness fixes reviewed by Peter Spirtes.
+Ported from [Tetrad 7.6.3](https://github.com/cmu-phil/tetrad) (Java). Results validated against the Tetrad 7.6.3 JAR across all algorithms — see `JavaCPPComparison.md`.

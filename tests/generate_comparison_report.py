@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Generate JavaCPPComparison.md — a markdown report comparing Java Tetrad 7.6.8
+Generate JavaCPPComparison.md — a markdown report comparing Java Tetrad 7.6.3
 vs the C++ tetrad-port across all algorithms and datasets.
 
 Output format matches TestComparison.md style.
@@ -367,7 +367,7 @@ def generate_report():
     # Header
     L.append("# Java vs C++ Comparison — Tetrad Port")
     L.append("")
-    L.append(f"Comparison of **Tetrad 7.6.8 (Java)** against the **C++ port** across all implemented algorithms")
+    L.append(f"Comparison of **Tetrad 7.6.3 (Java)** against the **C++ port** across all implemented algorithms")
     L.append(f"and datasets.")
     L.append("")
     L.append(f"*Auto-generated on {datetime.now().strftime('%Y-%m-%d %H:%M:%S')} by "

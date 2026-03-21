@@ -8,9 +8,9 @@ C++ port of CMU's Tetrad causal inference library. Implements constraint-based (
 
 ## Reference Version
 
-**Tetrad 7.6.8** (`tetrad-7.6.8/`) is the reference Java source for all porting work. This version was chosen because it contains critical FciOrient correctness fixes (R3/R4/R5/R8/R9/R10 reviewed by Spirtes) required by all FCI-variant algorithms. See `TetradVersionRecommendation.md` for full rationale.
+**Tetrad 7.6.3** (`tetrad-7.6.3/`) is the reference Java source and the version matched by the JAR comparison tests. The FCI-variant algorithms use 7.6.3 semantics: `SepsetsGreedy` + `gfciExtraEdgeRemovalStep` + `gfciR0` + `doFinalOrientation` (no `possibleDsep` step).
 
-The existing PC/FAS/MeekRules port was originally based on 7.6.3. Differences are documented in `TetradVersionRecommendation.md` and are minor (PC itself did not change between versions).
+The `tetrad-7.6.8/` directory is retained for reference. See `TetradVersionRecommendation.md` and `Difference_7.6.3_7.6.8.md` for the version comparison.
 
 ## Build & Test Commands
 
@@ -90,9 +90,9 @@ Python: numpy, pandas (required); semopy (optional, SEM fitting); dgraph-flex (o
 
 ## Reference Material
 
-This is a port from Java Tetrad 7.6.8. Key source mappings for implemented code:
+This is a port from Java Tetrad 7.6.3. Key source mappings for implemented code:
 
-| C++ | Java (in `tetrad-7.6.8/tetrad-lib/src/main/java/edu/cmu/tetrad/`) |
+| C++ | Java (in `tetrad-7.6.3/tetrad-lib/src/main/java/edu/cmu/tetrad/`) |
 |-----|-------------------------------------------------------------------|
 | `node.h/cpp` | `graph/GraphNode.java`, `graph/Node.java` |
 | `edge.h/cpp` | `graph/Edge.java` |
@@ -103,7 +103,7 @@ This is a port from Java Tetrad 7.6.8. Key source mappings for implemented code:
 | `meek_rules.h/cpp` | `search/utils/MeekRules.java` |
 | `sem_bic_score.h/cpp` | `search/score/SemBicScore.java` |
 | `fges.h/cpp` | `search/Fges.java` |
-| `fci_orient.h/cpp` | `search/utils/FciOrient.java`, `search/utils/R0R4StrategyTestBased.java` |
+| `fci_orient.h/cpp` | `search/utils/FciOrient.java` |
 | `gfci.h/cpp` | `search/Gfci.java` |
 | `grow_shrink_tree.h/cpp` | `search/utils/GrowShrinkTree.java` |
 | `boss.h/cpp` | `search/Boss.java` |
@@ -118,17 +118,19 @@ This is a port from Java Tetrad 7.6.8. Key source mappings for implemented code:
 
 ## Java vs C++ Comparison Testing
 
-`tests/java_oracle.py` — thin jpype wrapper around Tetrad 7.6.8 JAR. Requires the JAR at `jars/tetrad-gui-7.6.8-launch.jar` (gitignored) and jpype (`pip install jpype1`). Also requires Java 21+.
+`tests/java_oracle.py` — thin jpype wrapper around Tetrad 7.6.3 JAR. Requires the JAR at `jars/tetrad-gui-7.6.3-launch.jar` (gitignored) and jpype (`pip install jpype1`). Also requires Java 21+.
 
-`tests/test_java_comparison.py` — 18 pytest tests comparing Java and C++ outputs across all 7 algorithms using adjacency Jaccard and edge-type agreement metrics. Auto-skips if JAR or jpype is unavailable.
+`tests/test_java_comparison.py` — 26 pytest tests comparing Java and C++ outputs across all 7 algorithms using adjacency Jaccard and edge-type agreement metrics. Auto-skips if JAR or jpype is unavailable.
 
-## Known Differences from Java (Resolved)
+## Known Differences from Java 7.6.3 (Resolved)
 
-All previously identified deviations from Java 7.6.8 have been resolved:
+All previously identified deviations from Java 7.6.3 have been resolved:
 
 - **PC**: MeekRules R2/R3 early-return, PRIORITIZE_EXISTING collider orientation, FAS `possibleParents` knowledge checks, full Knowledge class, `pcOrientbk()`, MeekRules R4, `colliderAllowed()` knowledge check
-- **FGES/BOSS/GRaSP**: `MeekRules::orientImplied` DAG→CPDAG conversion (`revertToUnshieldedColliders` flag was declared but never executed — fixed by implementing the full revert-colliders-then-undirect-then-re-orient logic)
-- **GFCI**: Missing possible d-sep removal step (`Paths.possibleDsep` BFS + sepset testing from candidate list) that Java performs between the first collider orientation pass and the FCI rules — added as Step 6 with a second collider orientation pass (Step 7) after
+- **FGES/BOSS/GRaSP**: `MeekRules::orientImplied` DAG→CPDAG conversion (`revertToUnshieldedColliders` logic)
+- **GFCI skeleton**: `sortByJavaHashOrder` applied in `gfciExtraEdgeRemovalStep` and `gfciR0` adjacency loops to replicate Java's `HashSet<Node>` iteration order — achieves Jaccard 1.0 on Boston EMA
+
+**One known remaining difference**: GFCI Boston `TIB <-> TST` (Java bidirected) vs `TIB --> TST` (C++ directed). Root cause: R1 in `rulesR1R2cycle` fires before a collider-setting rule in C++. Sorting `rulesR1R2cycle` adjacency was tried and reverted — it hurt GRaSP-FCI (Jaccard 0.81→0.74).
 
 ## Implemented Algorithms
 
