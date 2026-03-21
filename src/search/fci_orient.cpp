@@ -1,6 +1,6 @@
 #include "search/fci_orient.h"
-#include "search/ind_test_fisher_z.h"
 #include "util/choice_generator.h"
+#include "util/java_hash.h"
 #include <algorithm>
 #include <queue>
 #include <unordered_set>
@@ -26,10 +26,6 @@ static bool existsUncoveredSemiDirectedPath(
     const NodePtr& to,
     const NodePtr& prevOfFrom)
 {
-    // Matches Java's R5R9Dijkstra: each node is visited (settled) at most once.
-    // Uses a single predecessor per node, like Dijkstra with a simple visited set.
-    // This is less thorough than tracking (node, predecessor) pairs but matches
-    // Java's behavior where a node settled via one path is never revisited.
     using StatePair = std::pair<NodePtr, NodePtr>;  // (current, predecessor)
 
     std::queue<StatePair> Q;
@@ -159,110 +155,16 @@ static std::vector<NodePtr> findUncoveredCirclePath(
     return {};
 }
 
-// ---- R0R4StrategyTestBased ----
-
-R0R4StrategyTestBased::R0R4StrategyTestBased(IndependenceTest& test) : test_(test) {}
-
-bool R0R4StrategyTestBased::isUnshieldedCollider(const Graph& graph,
-                                                  const NodePtr& a, const NodePtr& b, const NodePtr& c) {
-    // Find sepset of (a, c) from adjacencies of a or c
-    // If b is NOT in the sepset, then a-b-c is a collider.
-    auto adjA = graph.getAdjacentNodes(a);
-    auto adjC = graph.getAdjacentNodes(c);
-
-    // Remove c from adjA, a from adjC
-    adjA.erase(std::remove_if(adjA.begin(), adjA.end(),
-        [&](const NodePtr& n) { return *n == *c; }), adjA.end());
-    adjC.erase(std::remove_if(adjC.begin(), adjC.end(),
-        [&](const NodePtr& n) { return *n == *a; }), adjC.end());
-
-    int maxDepth = depth_ < 0 ? static_cast<int>(adjA.size()) : std::min(depth_, static_cast<int>(adjA.size()));
-
-    // Check subsets of adjA
-    for (int d = 0; d <= maxDepth; d++) {
-        ChoiceGenerator cg(static_cast<int>(adjA.size()), d);
-        const int* choice;
-        while ((choice = cg.next()) != nullptr) {
-            std::vector<NodePtr> condSet;
-            for (int i = 0; i < d; i++) {
-                condSet.push_back(adjA[choice[i]]);
-            }
-            if (test_.isIndependent(a, c, condSet)) {
-                // Check if b is in the sepset
-                bool bInSet = false;
-                for (const auto& n : condSet) {
-                    if (*n == *b) { bInSet = true; break; }
-                }
-                return !bInSet; // Collider if b not in sepset
-            }
-        }
-    }
-
-    maxDepth = depth_ < 0 ? static_cast<int>(adjC.size()) : std::min(depth_, static_cast<int>(adjC.size()));
-
-    // Check subsets of adjC
-    for (int d = 0; d <= maxDepth; d++) {
-        ChoiceGenerator cg(static_cast<int>(adjC.size()), d);
-        const int* choice;
-        while ((choice = cg.next()) != nullptr) {
-            std::vector<NodePtr> condSet;
-            for (int i = 0; i < d; i++) {
-                condSet.push_back(adjC[choice[i]]);
-            }
-            if (test_.isIndependent(a, c, condSet)) {
-                bool bInSet = false;
-                for (const auto& n : condSet) {
-                    if (*n == *b) { bInSet = true; break; }
-                }
-                return !bInSet;
-            }
-        }
-    }
-
-    return false;
-}
-
-bool R0R4StrategyTestBased::doDiscriminatingPathOrientation(
-    const NodePtr& x, const NodePtr& /*w*/, const NodePtr& v, const NodePtr& y,
-    const std::vector<NodePtr>& colliderPath,
-    Graph& graph) {
-
-    // The collider path nodes are all between X and V, excluding X and V.
-    // Check if X is independent of Y given the collider path.
-    std::vector<NodePtr> condSet(colliderPath.begin(), colliderPath.end());
-
-    bool independent = test_.isIndependent(x, y, condSet);
-
-    if (independent) {
-        // V is in the sepset → noncollider at V: orient V → Y
-        graph.setEndpoint(v, y, Endpoint::ARROW);
-        graph.setEndpoint(y, v, Endpoint::TAIL);
-        return true;
-    } else {
-        // V is not in the sepset → collider at V: orient W *-> V <-> Y
-        graph.setEndpoint(v, y, Endpoint::ARROW);
-        graph.setEndpoint(y, v, Endpoint::ARROW);
-        return true;
-    }
-}
-
 // ---- FciOrient ----
 
-FciOrient::FciOrient(R0R4Strategy& strategy) : strategy_(strategy) {
-    knowledge_ = strategy.getKnowledge();
-}
+FciOrient::FciOrient(SepsetsGreedy& sepsets) : sepsets_(sepsets) {}
 
-void FciOrient::setKnowledge(const Knowledge& knowledge) {
-    knowledge_ = knowledge;
-    strategy_.setKnowledge(knowledge);
-}
-
-void FciOrient::orient(Graph& graph, std::unordered_set<Triple>& unshieldedTriples) {
-    ruleR0(graph, unshieldedTriples);
+void FciOrient::orient(Graph& graph) {
+    ruleR0(graph);
     finalOrientation(graph);
 }
 
-void FciOrient::ruleR0(Graph& graph, std::unordered_set<Triple>& unshieldedTriples) {
+void FciOrient::ruleR0(Graph& graph) {
     graph.reorientAllWith(Endpoint::CIRCLE);
     fciOrientbk(knowledge_, graph, graph.getNodes());
 
@@ -281,13 +183,12 @@ void FciOrient::ruleR0(Graph& graph, std::unordered_set<Triple>& unshieldedTripl
             if (graph.isAdjacentTo(a, c)) continue;
             if (graph.isDefCollider(a, b, c)) continue;
 
-            if (strategy_.isUnshieldedCollider(graph, a, b, c)) {
+            if (sepsets_.isUnshieldedCollider(a, b, c)) {
                 if (!isArrowheadAllowed(a, b, graph, knowledge_)) continue;
                 if (!isArrowheadAllowed(c, b, graph, knowledge_)) continue;
 
                 graph.setEndpoint(a, b, Endpoint::ARROW);
                 graph.setEndpoint(c, b, Endpoint::ARROW);
-                unshieldedTriples.insert(Triple(a, b, c));
                 changeFlag_ = true;
             }
         }
@@ -312,7 +213,7 @@ void FciOrient::spirtesFinalOrientation(Graph& graph) {
         ruleR3(graph);
 
         if (changeFlag_ || (firstTime && !knowledge_.isEmpty())) {
-            ruleR4(graph);
+            ruleR4B(graph);
             firstTime = false;
         }
     }
@@ -328,7 +229,7 @@ void FciOrient::zhangFinalOrientation(Graph& graph) {
         ruleR3(graph);
 
         if (changeFlag_ || (firstTime && !knowledge_.isEmpty())) {
-            ruleR4(graph);
+            ruleR4B(graph);
             firstTime = false;
         }
     }
@@ -339,8 +240,7 @@ void FciOrient::zhangFinalOrientation(Graph& graph) {
         changeFlag_ = true;
         while (changeFlag_) {
             changeFlag_ = false;
-            ruleR6(graph);
-            ruleR7(graph);
+            ruleR6R7(graph);
         }
 
         changeFlag_ = true;
@@ -367,10 +267,8 @@ void FciOrient::ruleR1(const NodePtr& a, const NodePtr& b, const NodePtr& c, Gra
 // R2: If a -> b *-> c, or a *-> b -> c, and a *-o c, orient a *-> c.
 void FciOrient::ruleR2(const NodePtr& a, const NodePtr& b, const NodePtr& c, Graph& graph) {
     if (graph.isAdjacentTo(a, c) && graph.getEndpoint(a, c) == Endpoint::CIRCLE) {
-        if ((graph.getEndpoint(a, b) == Endpoint::ARROW && graph.getEndpoint(b, c) == Endpoint::ARROW
-             && graph.getEndpoint(b, a) == Endpoint::TAIL)
-            || (graph.getEndpoint(a, b) == Endpoint::ARROW && graph.getEndpoint(b, c) == Endpoint::ARROW
-                && graph.getEndpoint(c, b) == Endpoint::TAIL)) {
+        if ((graph.getEndpoint(a, b) == Endpoint::ARROW && graph.getEndpoint(b, c) == Endpoint::ARROW)
+            && (graph.getEndpoint(b, a) == Endpoint::TAIL || graph.getEndpoint(c, b) == Endpoint::TAIL)) {
 
             if (!isArrowheadAllowed(a, c, graph, knowledge_)) return;
 
@@ -401,148 +299,191 @@ void FciOrient::rulesR1R2cycle(Graph& graph) {
     }
 }
 
-// R3: If a *-> b <-* c, a *-o d o-* c, a and c not adj, d *-o b, orient d *-> b.
+// R3 (7.6.3): D*-oB, A*->B<-*C and A*-oD o-*C, !adj(A,C), D*-oB -> orient D*->B.
+// Uses getNodesInTo(b, ARROW) to pick pairs (a, c), then finds D as common adjacent.
+// NOTE: preserves 7.6.3 behavior where !isArrowheadAllowed causes `return` (not `continue`).
 void FciOrient::ruleR3(Graph& graph) {
     auto nodes = graph.getNodes();
 
     for (const auto& b : nodes) {
-        auto adj = graph.getAdjacentNodes(b);
-        if (adj.size() < 3) continue;
+        auto intoBArrows = graph.getNodesInTo(b, Endpoint::ARROW);
+        if (static_cast<int>(intoBArrows.size()) < 2) continue;
 
-        ChoiceGenerator gen(static_cast<int>(adj.size()), 3);
-        const int* ch;
-        while ((ch = gen.next()) != nullptr) {
-            std::vector<NodePtr> adjb = {adj[ch[0]], adj[ch[1]], adj[ch[2]]};
+        ChoiceGenerator gen(static_cast<int>(intoBArrows.size()), 2);
+        const int* choice;
+        while ((choice = gen.next()) != nullptr) {
+            const auto& a = intoBArrows[choice[0]];
+            const auto& c = intoBArrows[choice[1]];
 
-            // Try all permutations of 3 elements
-            int perms[6][3] = {{0,1,2},{0,2,1},{1,0,2},{1,2,0},{2,0,1},{2,1,0}};
-            for (auto& perm : perms) {
-                const auto& a = adjb[perm[0]];
-                const auto& d = adjb[perm[1]];
-                const auto& c = adjb[perm[2]];
+            // Common adjacents of a and c
+            auto adjA = graph.getAdjacentNodes(a);
+            auto adjC = graph.getAdjacentNodes(c);
 
-                if (!graph.isDefCollider(a, b, c)) continue;
-                if (!(graph.isAdjacentTo(a, b) && graph.isAdjacentTo(d, b) && graph.isAdjacentTo(c, b))) continue;
-                if (!(graph.isAdjacentTo(a, d) && graph.isAdjacentTo(c, d))) continue;
+            for (const auto& d : adjA) {
+                // d must be in adj(c)
+                bool inAdjC = false;
+                for (const auto& n : adjC) {
+                    if (*n == *d) { inAdjC = true; break; }
+                }
+                if (!inAdjC) continue;
+
+                // a *-o d: endpoint at d from a = CIRCLE
+                if (graph.getEndpoint(a, d) != Endpoint::CIRCLE) continue;
+                // d o-* c: endpoint at d from c = CIRCLE
+                if (graph.getEndpoint(c, d) != Endpoint::CIRCLE) continue;
+                // a and c not adjacent
                 if (graph.isAdjacentTo(a, c)) continue;
-                if (!(graph.getEndpoint(d, b) == Endpoint::CIRCLE
-                      && graph.getEndpoint(a, d) == Endpoint::CIRCLE
-                      && graph.getEndpoint(c, d) == Endpoint::CIRCLE)) continue;
+                // d *-o b: endpoint at b from d = CIRCLE
+                if (graph.getEndpoint(d, b) != Endpoint::CIRCLE) continue;
+                // d must be adjacent to b (checked via getEndpoint above if edge exists)
+                if (!graph.isAdjacentTo(d, b)) continue;
 
-                if (!isArrowheadAllowed(d, b, graph, knowledge_)) continue;
+                // 7.6.3 bug: return instead of continue
+                if (!isArrowheadAllowed(d, b, graph, knowledge_)) return;
 
                 graph.setEndpoint(d, b, Endpoint::ARROW);
                 changeFlag_ = true;
-                return; // Only one orientation per pass
             }
         }
     }
 }
 
-// R4: Discriminating path rule.
-void FciOrient::ruleR4(Graph& graph) {
-    // Find discriminating paths via BFS.
+// R4 (7.6.3): Discriminating path rule.
+// possA = getNodesOutTo(b, ARROW): nodes a where b *-> a (endpoint at a from b = ARROW)
+// possC = getNodesInTo(b, CIRCLE): nodes c where c *-o b (endpoint at b from c = CIRCLE)
+// Conditions: a != c, isParentOf(a, c), getEndpoint(b, c) == ARROW
+void FciOrient::ruleR4B(Graph& graph) {
+    if (!doDiscriminatingPathColliderRule_ && !doDiscriminatingPathTailRule_) return;
+
+    auto nodes = graph.getNodes();
+    for (const auto& b : nodes) {
+        // possA: nodes a where b *-> a (endpoint at a from b = ARROW)
+        auto adjB = graph.getAdjacentNodes(b);
+
+        for (const auto& a : adjB) {
+            // b *-> a: endpoint at a from b = ARROW
+            if (graph.getEndpoint(b, a) != Endpoint::ARROW) continue;
+
+            for (const auto& c : graph.getNodesInTo(b, Endpoint::CIRCLE)) {
+                if (*c == *a) continue;
+                if (!graph.isParentOf(a, c)) continue;
+                // b *-> c: endpoint at c from b = ARROW
+                if (graph.getEndpoint(b, c) != Endpoint::ARROW) continue;
+
+                ddpOrient(a, b, c, graph);
+            }
+        }
+    }
+}
+
+// BFS backward from a to find discriminating path endpoint d (not adj to c).
+// All intermediate nodes must be definite colliders on the path and parents of c.
+void FciOrient::ddpOrient(const NodePtr& a, const NodePtr& b, const NodePtr& c, Graph& graph) {
+    std::queue<NodePtr> Q;
+    std::unordered_set<std::string> V;
+    std::unordered_map<std::string, NodePtr> previous;
+
+    auto cParents = graph.getParents(c);
+
+    Q.push(a);
+    V.insert(a->getName());
+    V.insert(b->getName());
+    previous[a->getName()] = b;  // b is sentinel predecessor for a
+
+    while (!Q.empty()) {
+        NodePtr t = Q.front(); Q.pop();
+
+        for (const auto& d : graph.getNodesInTo(t, Endpoint::ARROW)) {
+            if (V.count(d->getName())) continue;
+
+            previous[d->getName()] = t;
+            NodePtr p = previous.count(t->getName()) ? previous.at(t->getName()) : nullptr;
+
+            // d must be a definite collider at t: d *-> t <-* p
+            if (!p || !graph.isDefCollider(d, t, p)) continue;
+
+            // Check max path length
+            if (maxDiscriminatingPathLength_ != -1) {
+                int len = 0;
+                NodePtr curr = d;
+                while (previous.count(curr->getName()) && previous.at(curr->getName())) {
+                    len++;
+                    curr = previous.at(curr->getName());
+                }
+                if (len > maxDiscriminatingPathLength_) {
+                    V.insert(d->getName());
+                    continue;
+                }
+            }
+
+            if (!graph.isAdjacentTo(d, c)) {
+                // Found discriminating path endpoint d (not adjacent to c)
+                if (doDdpOrientation(d, a, b, c, graph)) {
+                    return;  // noncollider case: done
+                }
+                // collider case: don't return, continue BFS
+            }
+
+            // Add to queue only if d is a parent of c
+            bool isCParent = false;
+            for (const auto& cp : cParents) {
+                if (*cp == *d) { isCParent = true; break; }
+            }
+            if (isCParent) {
+                Q.push(d);
+                V.insert(d->getName());
+            } else {
+                V.insert(d->getName());
+            }
+        }
+    }
+}
+
+// Orientation decision for discriminating path rule (7.6.3 version).
+// Gets sep(d, c) from sepsets and checks if b is in it.
+// Returns true for noncollider (tail rule applied), false for collider.
+bool FciOrient::doDdpOrientation(const NodePtr& d, const NodePtr& /*a*/, const NodePtr& b,
+                                   const NodePtr& c, Graph& graph) {
+    const std::set<NodePtr>* sepset = sepsets_.getSepset(d, c);
+
+    if (sepset == nullptr) {
+        return false;
+    }
+
+    bool bInSepset = (sepset->find(b) != sepset->end());
+
+    if (!bInSepset && doDiscriminatingPathColliderRule_) {
+        // b not in sep(d,c): collider → orient b as collider at c
+        if (!isArrowheadAllowed(c, b, graph, knowledge_)) return false;
+
+        graph.setEndpoint(c, b, Endpoint::ARROW);
+        changeFlag_ = true;
+        return false;  // 7.6.3: returns false for collider case
+    } else if (bInSepset && doDiscriminatingPathTailRule_) {
+        // b in sep(d,c): noncollider → orient c -> b (tail at b from c)
+        graph.setEndpoint(c, b, Endpoint::TAIL);
+        changeFlag_ = true;
+        return true;
+    }
+
+    return false;
+}
+
+// R5 (7.6.3): Node-centric iteration.
+// If a o-o b, and there is an uncovered circle path u from a to b s.t.
+// gamma (first hop from a) not adj to b, theta (last before b) not adj to a,
+// orient a -- b and all path edges as undirected.
+void FciOrient::ruleR5(Graph& graph) {
     auto nodes = graph.getNodes();
 
-    for (const auto& w : nodes) {
-        for (const auto& y : graph.getAdjacentNodes(w)) {
-            if (!graph.isParentOf(w, y)) continue;
+    for (const auto& a : nodes) {
+        // adjacents = getNodesInTo(a, CIRCLE): nodes b where c *-o a (circle at a from b)
+        auto adjacents = graph.getNodesInTo(a, Endpoint::CIRCLE);
 
-            auto vnodes = graph.getAdjacentNodes(y);
-            // Retain only nodes adjacent to both y and w
-            std::vector<NodePtr> vCandidates;
-            for (const auto& v : vnodes) {
-                if (graph.isAdjacentTo(v, w)) {
-                    vCandidates.push_back(v);
-                }
-            }
-
-            for (const auto& v : vCandidates) {
-                if (*w == *y) continue;
-                if (graph.getEndpoint(y, v) != Endpoint::CIRCLE) continue;
-                if (graph.getEndpoint(v, y) != Endpoint::ARROW) continue;
-
-                // BFS backward from w to find discriminating paths
-                std::queue<NodePtr> Q;
-                std::unordered_set<std::string> visited;
-                std::unordered_map<std::string, NodePtr> previous;
-
-                Q.push(w);
-                visited.insert(w->getName());
-                visited.insert(v->getName());
-                previous[w->getName()] = nullptr;
-
-                while (!Q.empty()) {
-                    NodePtr t = Q.front();
-                    Q.pop();
-
-                    auto nodesInTo = graph.getNodesInTo(t, Endpoint::ARROW);
-
-                    for (const auto& x : nodesInTo) {
-                        if (visited.count(x->getName())) continue;
-
-                        previous[x->getName()] = t;
-
-                        // Build collider path
-                        std::vector<NodePtr> colliderPath;
-                        NodePtr d = x;
-                        while (previous.count(d->getName()) && previous[d->getName()]) {
-                            colliderPath.push_back(previous[d->getName()]);
-                            d = previous[d->getName()];
-                        }
-                        // colliderPath is from x back to w, but we want w...t (excluding x and v)
-
-                        if (maxDiscriminatingPathLength_ != -1 &&
-                            static_cast<int>(colliderPath.size()) > maxDiscriminatingPathLength_) {
-                            continue;
-                        }
-
-                        // Check if this forms a valid discriminating path
-                        // X...W --> Y, with V adjacent to both W and Y
-                        // All nodes on collider path must be parents of Y
-                        bool validPath = true;
-                        for (const auto& n : colliderPath) {
-                            if (!graph.isParentOf(n, y)) {
-                                validPath = false;
-                                break;
-                            }
-                        }
-
-                        if (validPath && !graph.isAdjacentTo(x, y) && colliderPath.size() >= 1) {
-                            bool oriented = strategy_.doDiscriminatingPathOrientation(
-                                x, w, v, y, colliderPath, graph);
-                            if (oriented) {
-                                changeFlag_ = true;
-                            }
-                        }
-
-                        if (!visited.count(x->getName())) {
-                            Q.push(x);
-                            visited.insert(x->getName());
-                        }
-                    }
-                }
-            }
-        }
-    }
-}
-
-// R5: If a o-o b, and there is an uncovered circle path from a to b s.t.
-// gamma (first hop from a) not adj to b, and theta (last before b) not adj to
-// a, orient a o-o b as a -- b and all path edges as undirected.
-void FciOrient::ruleR5(Graph& graph) {
-    for (const auto& edge : graph.getEdges()) {
-        // R5 applies to nondirected (o-o) edges only
-        if (edge.getEndpoint1() != Endpoint::CIRCLE) continue;
-        if (edge.getEndpoint2() != Endpoint::CIRCLE) continue;
-
-        const auto& x = edge.getNode1();
-        const auto& y = edge.getNode2();
-
-        // Try both directions since R5 constraints are directional
-        for (int dir = 0; dir < 2; dir++) {
-            const auto& a = (dir == 0) ? x : y;
-            const auto& b = (dir == 0) ? y : x;
+        for (const auto& b : adjacents) {
+            // Also check a o-o b: endpoint at b from a = CIRCLE
+            if (graph.getEndpoint(a, b) != Endpoint::CIRCLE) continue;
+            // We know a o-o b.
 
             std::vector<NodePtr> path = findUncoveredCirclePath(graph, a, b);
             if (path.empty()) continue;
@@ -558,48 +499,43 @@ void FciOrient::ruleR5(Graph& graph) {
             }
 
             changeFlag_ = true;
-            break; // one valid path suffices for this edge
         }
     }
 }
 
-// R6: If a -- b o-* c, orient b o-* c as b -* c (set circle at b to tail).
-void FciOrient::ruleR6(Graph& graph) {
-    for (const auto& edge : graph.getEdges()) {
-        for (int dir = 0; dir < 2; dir++) {
-            const auto& a = (dir == 0) ? edge.getNode1() : edge.getNode2();
-            const auto& b = (dir == 0) ? edge.getNode2() : edge.getNode1();
+// R6 and R7 combined (7.6.3 style): ChoiceGenerator over adj(b).
+// R6: If A---Bo-*C (A not adj C), orient B-*C as B--*C (set circle at b from c to tail).
+// R7: If A--oBo-*C (A not adj C), orient B-*C as B--*C.
+void FciOrient::ruleR6R7(Graph& graph) {
+    auto nodes = graph.getNodes();
 
-            // Check a -- b (undirected)
-            if (!(edge.getEndpoint1() == Endpoint::TAIL && edge.getEndpoint2() == Endpoint::TAIL)) continue;
+    for (const auto& b : nodes) {
+        auto adjacents = graph.getAdjacentNodes(b);
+        if (static_cast<int>(adjacents.size()) < 2) continue;
 
-            for (const auto& c : graph.getAdjacentNodes(b)) {
-                if (*c == *a) continue;
-                if (graph.getEndpoint(c, b) == Endpoint::CIRCLE) {
-                    graph.setEndpoint(c, b, Endpoint::TAIL);
-                    changeFlag_ = true;
-                }
+        ChoiceGenerator cg(static_cast<int>(adjacents.size()), 2);
+        const int* choice;
+        while ((choice = cg.next()) != nullptr) {
+            const auto& a = adjacents[choice[0]];
+            const auto& c = adjacents[choice[1]];
+
+            // Both R6 and R7 require a and c not adjacent (7.6.3 behavior)
+            if (graph.isAdjacentTo(a, c)) continue;
+
+            // A --* B: endpoint at a from b = TAIL (a is tail-ended)
+            if (graph.getEndpoint(b, a) != Endpoint::TAIL) continue;
+            // B o-* C: endpoint at b from c = CIRCLE
+            if (graph.getEndpoint(c, b) != Endpoint::CIRCLE) continue;
+
+            // R6: A --- B (also tail at b from a)
+            if (graph.getEndpoint(a, b) == Endpoint::TAIL) {
+                graph.setEndpoint(c, b, Endpoint::TAIL);
+                changeFlag_ = true;
             }
-        }
-    }
-}
-
-// R7: If a --o b o-* c, and a not adj c, orient b o-* c as b -* c.
-void FciOrient::ruleR7(Graph& graph) {
-    for (const auto& edge : graph.getEdges()) {
-        for (int dir = 0; dir < 2; dir++) {
-            const auto& a = (dir == 0) ? edge.getNode1() : edge.getNode2();
-            const auto& b = (dir == 0) ? edge.getNode2() : edge.getNode1();
-
-            // Check a --o b: endpoint at b from a is CIRCLE, endpoint at a from b is TAIL
-            if (!(graph.getEndpoint(a, b) == Endpoint::CIRCLE && graph.getEndpoint(b, a) == Endpoint::TAIL)) continue;
-
-            for (const auto& c : graph.getAdjacentNodes(b)) {
-                if (*c == *a) continue;
-                if (!graph.isAdjacentTo(a, c) && graph.getEndpoint(c, b) == Endpoint::CIRCLE) {
-                    graph.setEndpoint(c, b, Endpoint::TAIL);
-                    changeFlag_ = true;
-                }
+            // R7: A --o B (circle at b from a)
+            else if (graph.getEndpoint(a, b) == Endpoint::CIRCLE) {
+                graph.setEndpoint(c, b, Endpoint::TAIL);
+                changeFlag_ = true;
             }
         }
     }
@@ -629,41 +565,28 @@ void FciOrient::rulesR8R9R10(Graph& graph) {
 bool FciOrient::ruleR8(const NodePtr& a, const NodePtr& c, Graph& graph) {
     if (!isPartiallyOrientedEdge(a, c, graph)) return false;
 
-    // Find common adjacents of a and c
-    auto adjA = graph.getAdjacentNodes(a);
-    auto adjC = graph.getAdjacentNodes(c);
+    auto intoCArrows = graph.getNodesInTo(c, Endpoint::ARROW);
 
-    for (const auto& b : adjA) {
-        bool inAdjC = false;
-        for (const auto& n : adjC) {
-            if (*n == *b) { inAdjC = true; break; }
-        }
-        if (!inAdjC) continue;
+    for (const auto& b : intoCArrows) {
+        if (!graph.isAdjacentTo(a, b)) continue;
 
-        bool orient = false;
+        // endpoint at a from b = TAIL: a is tail-ended (a --* b)
+        if (graph.getEndpoint(b, a) != Endpoint::TAIL) continue;
+        // endpoint at b from c = TAIL: b -> c
+        if (graph.getEndpoint(c, b) != Endpoint::TAIL) continue;
+        // endpoint at b from a != TAIL: a --> b or a --o b
+        if (graph.getEndpoint(a, b) == Endpoint::TAIL) continue;
 
-        // a -> b -> c: b->a is tail, a->b is arrow, c->b is tail, b->c is arrow
-        if (graph.getEndpoint(b, a) == Endpoint::TAIL && graph.getEndpoint(a, b) == Endpoint::ARROW
-            && graph.getEndpoint(c, b) == Endpoint::TAIL && graph.getEndpoint(b, c) == Endpoint::ARROW) {
-            orient = true;
-        }
-        // a --o b -> c: b->a is tail, a->b is circle, c->b is tail, b->c is arrow
-        else if (graph.getEndpoint(b, a) == Endpoint::TAIL && graph.getEndpoint(a, b) == Endpoint::CIRCLE
-                 && graph.getEndpoint(c, b) == Endpoint::TAIL && graph.getEndpoint(b, c) == Endpoint::ARROW) {
-            orient = true;
-        }
-
-        if (orient) {
-            graph.setEndpoint(c, a, Endpoint::TAIL);
-            changeFlag_ = true;
-            return true;
-        }
+        // A-->B-->C or A--oB-->C: R8 applies
+        graph.setEndpoint(c, a, Endpoint::TAIL);
+        changeFlag_ = true;
+        return true;
     }
 
     return false;
 }
 
-// R9: If a o-> c, and there is an uncovered potentially directed path from a to c
+// R9: If a o-> c, and there is an uncovered pd path from a to c
 // s.t. c and first-on-path not adj, orient a -> c.
 bool FciOrient::ruleR9(const NodePtr& a, const NodePtr& c, Graph& graph) {
     if (!isPartiallyOrientedEdge(a, c, graph)) return false;
@@ -681,7 +604,6 @@ bool FciOrient::ruleR9(const NodePtr& a, const NodePtr& c, Graph& graph) {
 
         // Check if there's an uncovered semi-directed path from beta to c
         // (beta is first step after a, so prevOfFrom = a).
-        // Matches Java's R5R9Dijkstra with Rule.R9 and uncovered=true.
         if (existsUncoveredSemiDirectedPath(graph, beta, c, a)) {
             graph.setEndpoint(c, a, Endpoint::TAIL);
             changeFlag_ = true;
@@ -697,22 +619,21 @@ bool FciOrient::ruleR9(const NodePtr& a, const NodePtr& c, Graph& graph) {
 void FciOrient::ruleR10(const NodePtr& alpha, const NodePtr& gamma, Graph& graph) {
     if (!isPartiallyOrientedEdge(alpha, gamma, graph)) return;
 
-    auto into = graph.getNodesInTo(gamma, Endpoint::ARROW);
-    // Remove alpha
-    into.erase(std::remove_if(into.begin(), into.end(),
-        [&](const NodePtr& n) { return *n == *alpha; }), into.end());
+    auto intoCArrows = graph.getNodesInTo(gamma, Endpoint::ARROW);
 
-    for (size_t i = 0; i < into.size(); i++) {
-        for (size_t j = i + 1; j < into.size(); j++) {
-            const auto& beta = into[i];
-            const auto& theta = into[j];
+    for (const auto& beta : intoCArrows) {
+        if (*beta == *alpha) continue;
+        // beta -> gamma: endpoint at beta from gamma = TAIL
+        if (graph.getEndpoint(gamma, beta) != Endpoint::TAIL) continue;
 
-            // Need beta -> gamma and theta -> gamma
-            if (graph.getEndpoint(gamma, beta) != Endpoint::TAIL) continue;
-            if (graph.getEndpoint(gamma, theta) != Endpoint::TAIL) continue;
+        for (const auto& theta : intoCArrows) {
+            if (*theta == *alpha || *theta == *beta) continue;
+            // 7.6.3: uses getEndpoint(theta, gamma) instead of getEndpoint(gamma, theta)
+            // This is a bug in 7.6.3 (always fails since theta is in intoCArrows meaning
+            // endpoint at gamma from theta = ARROW, so getEndpoint(theta, gamma) = ARROW != TAIL).
+            // Replicating the bug for 7.6.3 compatibility:
+            if (graph.getEndpoint(theta, gamma) != Endpoint::TAIL) continue;
 
-            // Candidates for nu/omega: neighbors of alpha excluding beta and theta
-            // (matches Java: adj1.remove(beta); adj1.remove(theta))
             auto adjAlpha = graph.getAdjacentNodes(alpha);
             adjAlpha.erase(std::remove_if(adjAlpha.begin(), adjAlpha.end(),
                 [&](const NodePtr& n) { return *n == *beta || *n == *theta; }), adjAlpha.end());

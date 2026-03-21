@@ -1,10 +1,10 @@
 """
-Thin jpype wrapper around the Tetrad 7.6.8 JAR for use as a Java oracle
+Thin jpype wrapper around the Tetrad 7.6.3 JAR for use as a Java oracle
 in Java vs C++ comparison tests.
 
 Requires:
   - Java 21+ on PATH
-  - jars/tetrad-gui-7.6.8-launch.jar (downloaded from Maven Central)
+  - jars/tetrad-gui-7.6.3-launch.jar (downloaded from Maven Central)
   - jpype1 installed in the venv
 
 Usage:
@@ -23,7 +23,7 @@ from typing import Optional
 import numpy as np
 import pandas as pd
 
-_DEFAULT_JAR = Path(__file__).parent.parent / "jars" / "tetrad-gui-7.6.8-launch.jar"
+_DEFAULT_JAR = Path(__file__).parent.parent / "jars" / "tetrad-gui-7.6.3-launch.jar"
 
 _EDGE_RE = re.compile(r"^\d+\.\s*")
 _SEP_TOKENS = ["<->", "-->", "o->", "o-o", "<-o", "<--", "---"]
@@ -47,7 +47,7 @@ def _parse_edges(graph_str: str) -> list[str]:
 
 class TetradOracle:
     """
-    Wraps the Tetrad 7.6.8 JAR via jpype. The JVM is started once and
+    Wraps the Tetrad 7.6.3 JAR via jpype. The JVM is started once and
     reused across calls (jpype does not support restart within a process).
     """
 
@@ -60,9 +60,9 @@ class TetradOracle:
             raise FileNotFoundError(
                 f"Tetrad JAR not found at {self._jar}. "
                 "Download with:\n"
-                "  curl -o jars/tetrad-gui-7.6.8-launch.jar \\\n"
+                "  curl -o jars/tetrad-gui-7.6.3-launch.jar \\\n"
                 "    https://repo1.maven.org/maven2/io/github/cmu-phil/"
-                "tetrad-gui/7.6.8/tetrad-gui-7.6.8-launch.jar"
+                "tetrad-gui/7.6.3/tetrad-gui-7.6.3-launch.jar"
             )
 
         if not jpype.isJVMStarted():
@@ -176,11 +176,11 @@ class TetradOracle:
     def _run_gfci(self, data, alpha, penalty_discount, kn) -> str:
         test = self._make_test(data, alpha)
         score = self._make_score(data, penalty_discount)
-        gfci = self._ts.Gfci(test, score)
+        gfci = self._ts.GFci(test, score)  # GFci in 7.6.3 (Gfci in 7.6.8)
         gfci.setCompleteRuleSetUsed(True)
         gfci.setDepth(-1)
         gfci.setFaithfulnessAssumed(True)
-        gfci.setMaxDiscriminatingPathLength(-1)
+        gfci.setMaxPathLength(-1)  # setMaxDiscriminatingPathLength in 7.6.8
         gfci.setKnowledge(kn)
         gfci.setVerbose(False)
         return gfci.search().toString()
@@ -195,10 +195,10 @@ class TetradOracle:
     def _run_boss_fci(self, data, alpha, penalty_discount, kn) -> str:
         test = self._make_test(data, alpha)
         score = self._make_score(data, penalty_discount)
-        boss_fci = self._ts.BossFci(test, score)
+        boss_fci = self._ts.BFci(test, score)  # BFci in 7.6.3 (BossFci in 7.6.8)
         boss_fci.setCompleteRuleSetUsed(True)
         boss_fci.setDepth(-1)
-        boss_fci.setMaxDiscriminatingPathLength(-1)
+        boss_fci.setMaxPathLength(-1)  # setMaxDiscriminatingPathLength in 7.6.8
         boss_fci.setKnowledge(kn)
         boss_fci.setVerbose(False)
         return boss_fci.search().toString()
@@ -217,7 +217,7 @@ class TetradOracle:
         grasp_fci = self._ts.GraspFci(test, score)
         grasp_fci.setCompleteRuleSetUsed(True)
         grasp_fci.setDepth(-1)
-        grasp_fci.setMaxDiscriminatingPathLength(-1)
+        grasp_fci.setMaxPathLength(-1)  # setMaxDiscriminatingPathLength in 7.6.8
         grasp_fci.setKnowledge(kn)
         grasp_fci.setVerbose(False)
         return grasp_fci.search().toString()

@@ -49,6 +49,7 @@ add_library(tetrad_cpp STATIC
     src/search/pc.cpp
     src/search/sem_bic_score.cpp
     src/search/fges.cpp
+    src/search/sepsets_greedy.cpp
     src/search/fci_orient.cpp
     src/search/gfci.cpp
     src/search/grow_shrink_tree.cpp

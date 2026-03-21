@@ -28,7 +28,7 @@ from tetrad_port._tetrad_cpp import (
     PcResult, SearchResult, Knowledge,
 )
 
-__version__ = "0.2.3"
+__version__ = "0.3.0"
 __all__ = ["TetradPort", "Knowledge", "dict_to_knowledge"]
 
 ALGORITHMS = ("pc", "fges", "gfci", "boss", "boss_fci", "grasp", "grasp_fci", "fci")

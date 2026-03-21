@@ -3,23 +3,20 @@
 #include "graph/graph.h"
 #include "search/score.h"
 #include "search/independence_test.h"
-#include "search/sepset_map.h"
+#include "search/sepsets_greedy.h"
 #include "data/knowledge.h"
 #include <set>
-#include <unordered_set>
 
 namespace tetrad {
 
 // Greedy FCI (GFCI) algorithm.
-// Port of edu.cmu.tetrad.search.Gfci from Java Tetrad 7.6.8.
+// Port of edu.cmu.tetrad.search.GFci from Java Tetrad 7.6.3.
 //
 // Starts with a Markov CPDAG from FGES, then fixes it for latent variables:
 // 1. Run FGES to get CPDAG
-// 2. Extra edge removal via independence testing
-// 3. Reorient to circles, apply knowledge
-// 4. Copy colliders from CPDAG, orient from sepsets
-// 5. Possible d-sep removal
-// 6. Apply FCI orientation rules R1-R10
+// 2. Extra edge removal via SepsetsGreedy independence testing
+// 3. gfciR0: reorient circles, apply knowledge, orient colliders from CPDAG/sepsets
+// 4. Apply FCI orientation rules R1-R10
 //
 // Reference: Ogarrio, Spirtes & Ramsey (2016), "A hybrid causal search
 // algorithm for latent variable models."
@@ -38,30 +35,17 @@ public:
     void setVerbose(bool verbose) { verbose_ = verbose; }
     void setFaithfulnessAssumed(bool assumed) { faithfulnessAssumed_ = assumed; }
     void setMaxDegree(int maxDegree) { maxDegree_ = maxDegree; }
+    void setDoDiscriminatingPathRule(bool b) {
+        doDiscriminatingPathColliderRule_ = b;
+        doDiscriminatingPathTailRule_ = b;
+    }
 
 private:
     Graph getMarkovCpdag();
 
-    // Sepset finding: find a separating set from adj(x) or adj(y).
-    // Matches Java's sepsetSubsetOfAdjxOrAdjy: tries both, picks max p-value.
-    std::set<NodePtr>* findSepset(const Graph& graph, const NodePtr& x, const NodePtr& y,
-                                   const std::set<NodePtr>& containing);
-
-    // Helper: find first separating set from a single adjacency list.
-    std::pair<std::set<NodePtr>*, double> getSepsetFromAdj(
-        const NodePtr& x, const NodePtr& y,
-        const std::vector<NodePtr>& adj,
-        const std::set<NodePtr>& containing);
-
-    // Sepset finding: find a separating set from an explicit candidate list.
-    std::set<NodePtr>* findSepsetFromList(const Graph& graph, const NodePtr& x, const NodePtr& y,
-                                           const std::vector<NodePtr>& candidates);
-
-    // Orient colliders from CPDAG definite colliders and sepset-based triples.
-    void orientCollidersFromCpdag(Graph& pag, const Graph& cpdag,
-                                   const std::vector<NodePtr>& nodes,
-                                   const SepsetMap& sepsetMap,
-                                   std::unordered_set<Triple>& unshieldedColliders);
+    // Port of GraphUtils.gfciR0: reorient all to circles, apply knowledge,
+    // then orient colliders from CPDAG definite colliders and removed-edge sepsets.
+    void gfciR0(Graph& pag, const Graph& cpdag, SepsetsGreedy& sepsets);
 
     // Check if collider orientation is allowed by knowledge.
     static bool colliderAllowed(const Graph& pag, const NodePtr& x, const NodePtr& y,
@@ -76,9 +60,8 @@ private:
     int maxDegree_ = -1;
     bool verbose_ = false;
     bool faithfulnessAssumed_ = true;
-
-    // Temporary storage for sepset results (lifetime managed per search call)
-    std::vector<std::unique_ptr<std::set<NodePtr>>> sepsetStorage_;
+    bool doDiscriminatingPathColliderRule_ = true;
+    bool doDiscriminatingPathTailRule_ = true;
 };
 
 } // namespace tetrad
