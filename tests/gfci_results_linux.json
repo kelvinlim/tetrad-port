@@ -1,0 +1,148 @@
+{
+  "metadata": {
+    "platform": "Linux-6.17.0-1011-oem-x86_64-with-glibc2.39",
+    "python_version": "3.12.3 (main, Mar  3 2026, 12:15:18) [GCC 13.3.0]",
+    "tetrad_port_version": "0.3.0",
+    "timestamp": "2026-03-27T16:29:25.117783+00:00",
+    "algorithms": [
+      "gfci"
+    ],
+    "datasets": [
+      "chain",
+      "collider",
+      "latent",
+      "medium_latents",
+      "boston",
+      "r34b01"
+    ]
+  },
+  "results": {
+    "gfci/chain": {
+      "edges_canonical": [
+        "X o-o Y",
+        "Y o-o Z"
+      ],
+      "num_edges": 2,
+      "nodes": [
+        "X",
+        "Y",
+        "Z"
+      ],
+      "params": {
+        "alpha": 0.01,
+        "penalty_discount": 1.0
+      }
+    },
+    "gfci/collider": {
+      "edges_canonical": [
+        "X o-> Z",
+        "Y o-> Z"
+      ],
+      "num_edges": 2,
+      "nodes": [
+        "X",
+        "Y",
+        "Z"
+      ],
+      "params": {
+        "alpha": 0.01,
+        "penalty_discount": 1.0
+      }
+    },
+    "gfci/latent": {
+      "edges_canonical": [
+        "X o-o Y",
+        "X o-o Z"
+      ],
+      "num_edges": 2,
+      "nodes": [
+        "X",
+        "Y",
+        "Z"
+      ],
+      "params": {
+        "alpha": 0.01,
+        "penalty_discount": 1.0
+      }
+    },
+    "gfci/medium_latents": {
+      "edges_canonical": [
+        "X1 o-> X5",
+        "X1 o-o X3",
+        "X2 o-> X5",
+        "X2 o-> X6",
+        "X2 o-> X8",
+        "X3 o-> X5",
+        "X3 o-> X8",
+        "X3 o-o X4",
+        "X4 o-> X6",
+        "X7 o-> X5"
+      ],
+      "num_edges": 10,
+      "nodes": [
+        "X1",
+        "X2",
+        "X3",
+        "X4",
+        "X5",
+        "X6",
+        "X7",
+        "X8"
+      ],
+      "params": {
+        "alpha": 0.01,
+        "penalty_discount": 1.0
+      }
+    },
+    "gfci/boston": {
+      "edges_canonical": [
+        "PANAS_NA --> worry_scale",
+        "PANAS_NA <-> PANAS_NA_lag",
+        "PANAS_NA_lag --> worry_scale_lag",
+        "PANAS_NA_lag <-> PHQ9",
+        "PANAS_NA_lag <-> PHQ9_lag",
+        "PANAS_PA <-> PHQ9",
+        "PANAS_PA_lag --> PANAS_PA",
+        "PANAS_PA_lag --> PHQ9_lag",
+        "PHQ9 --> PANAS_NA",
+        "PHQ9_lag --> PHQ9",
+        "TIB --> PANAS_NA",
+        "TIB --> TST",
+        "TIB_lag o-> TIB",
+        "TIB_lag o-> TST_lag",
+        "TST_lag --> TST",
+        "alcohol_bev_lag --> alcohol_bev",
+        "worry_scale --> PANAS_PA",
+        "worry_scale --> TST",
+        "worry_scale_lag --> PANAS_PA_lag",
+        "worry_scale_lag --> TST_lag",
+        "worry_scale_lag --> alcohol_bev_lag",
+        "worry_scale_lag --> worry_scale"
+      ],
+      "num_edges": 22,
+      "nodes": [
+        "PANAS_NA",
+        "PANAS_NA_lag",
+        "PANAS_PA",
+        "PANAS_PA_lag",
+        "PHQ9",
+        "PHQ9_lag",
+        "TIB",
+        "TIB_lag",
+        "TST",
+        "TST_lag",
+        "alcohol_bev",
+        "alcohol_bev_lag",
+        "worry_scale",
+        "worry_scale_lag"
+      ],
+      "params": {
+        "alpha": 0.01,
+        "penalty_discount": 1.0
+      }
+    },
+    "gfci/r34b01": {
+      "error": "Singular correlation submatrix"
+    }
+  }
+}

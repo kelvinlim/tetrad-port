@@ -1,0 +1,24 @@
+
+=== Platform Metadata ===
+  gfci_results_windows:
+    platform : Windows-11-10.0.26200-SP0
+    version  : 0.3.0
+    timestamp: 2026-03-27T16:25:50.909597+00:00
+  gfci_results_linux:
+    platform : Linux-6.17.0-1011-oem-x86_64-with-glibc2.39
+    version  : 0.3.0
+    timestamp: 2026-03-27T16:29:25.117783+00:00
+
+=== Results: gfci_results_windows  vs  gfci_results_linux ===
+-------------------------------------------------------------------------------------
+dataset/algo                edges_A       edges_B   adj_jaccard    type_agree  status
+-------------------------------------------------------------------------------------
+gfci/boston                      22            22        1.0000        1.0000  OK
+gfci/chain                        2             2        1.0000        1.0000  OK
+gfci/collider                     2             2        1.0000        1.0000  OK
+gfci/latent                       2             2        1.0000        1.0000  OK
+gfci/medium_latents              10            10        1.0000        1.0000  OK
+gfci/r34b01                   ERROR         ERROR                              Singular correlation submatrix
+-------------------------------------------------------------------------------------
+
+Result: DIFFERENCES FOUND
