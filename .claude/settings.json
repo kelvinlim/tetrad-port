@@ -1,7 +1,13 @@
 {
   "permissions": {
     "allow": [
-      "Bash(R_LIBS_USER=~/R/libs Rscript -e ':*)"
+      "Bash(R_LIBS_USER=~/R/libs Rscript -e ':*)",
+      "Bash(python tests/export_results.py --out tests/gfci_results_windows.json)",
+      "Bash(pip install:*)",
+      "Bash(cmake --version)",
+      "Bash(cl)",
+      "Bash(where cl:*)",
+      "Read(//c/Users/limke/**)"
     ]
   }
 }

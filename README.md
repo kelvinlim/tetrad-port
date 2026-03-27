@@ -59,20 +59,77 @@ results, graph_info = tp.run_pc(df, alpha=0.05, knowledge=k)
 
 ## Building from Source
 
+### Prerequisites — Windows 11
+
+Building the C++ extension on Windows requires the MSVC compiler and CMake.
+
+**Step 1 — Visual Studio Build Tools**
+
+Download **Build Tools for Visual Studio 2022** (or 2026) from:
+https://visualstudio.microsoft.com/downloads/ → "Tools for Visual Studio" section
+
+Run the installer and select the **"Desktop development with C++"** workload. No other workloads are needed (~4 GB installed).
+
+**Step 2 — CMake**
+
+Download the Windows x64 installer from https://cmake.org/download/ and during install choose **"Add CMake to the system PATH for all users"**.
+
+**Step 3 — Verify (open a new terminal after install)**
+
+```powershell
+cl
+cmake --version
+```
+
+Both commands should print version information. If `cl` is not found, use the **"x64 Native Tools Command Prompt for VS 2022"** from the Start menu — it pre-configures the compiler environment. All `pip install` and `cmake` commands below work from that prompt.
+
+---
+
+### Python package (recommended)
+
+**Option A — install from requirements.txt (pinned environment)**
+
+```powershell
+python -m venv .venv
+.venv\Scripts\Activate.ps1
+pip install -r requirements.txt
+```
+
+`requirements.txt` includes a pinned `tetrad_port` git URL that is fetched and compiled automatically. This is the easiest path to a reproducible environment.
+
+**Option B — editable install from local source (development)**
+
+```powershell
+python -m venv .venv
+.venv\Scripts\Activate.ps1
+pip install -e ".[dev]"
+```
+
+**Verify the install:**
+
+```powershell
+python -c "import tetrad_port; print(tetrad_port.__version__)"
+pytest tests/test_python_bindings.py -v
+```
+
+---
+
 ### C++ standalone
+
+```powershell
+cmake -B build -DCMAKE_BUILD_TYPE=Release
+cmake --build build --config Release
+.\build\Release\tetrad_tests.exe   # Run all C++ tests
+.\build\Release\run_pc.exe         # Example CLI
+```
+
+On Linux/macOS:
 
 ```bash
 cmake -B build -DCMAKE_BUILD_TYPE=Release
 cmake --build build
-./build/tetrad_tests        # Run all C++ tests
-./build/run_pc              # Example CLI
-```
-
-### Python package
-
-```bash
-pip install -e ".[dev]"
-pytest tests/test_python_bindings.py -v
+./build/tetrad_tests
+./build/run_pc
 ```
 
 ## Documentation
@@ -103,6 +160,25 @@ Python bindings (`bindings/tetrad_bindings.cpp`) expose algorithms via nanobind.
 **Python:**
 - numpy, pandas (required)
 - semopy (optional, SEM fitting)
+
+## Cross-Platform Result Comparison
+
+To verify that algorithm outputs are consistent between Windows and Linux (or any two machines), use the scripts in `tests/`:
+
+```bash
+# On each machine — export canonical edge lists for all datasets
+python tests/export_results.py --out tests/gfci_results_windows.json
+python tests/export_results.py --out tests/gfci_results_linux.json
+
+# Run multiple algorithms at once
+python tests/export_results.py --algo gfci boss_fci grasp_fci --out tests/results_windows.json
+
+# Compare two result files (copy both to the same machine first)
+python tests/compare_platforms.py tests/gfci_results_windows.json tests/gfci_results_linux.json
+python tests/compare_platforms.py tests/gfci_results_windows.json tests/gfci_results_linux.json --verbose
+```
+
+The comparison reports adjacency Jaccard and edge-type agreement per dataset. An exit code of 0 means all results are identical; 1 means differences were found.
 
 ## Reference
 

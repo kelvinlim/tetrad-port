@@ -122,6 +122,12 @@ This is a port from Java Tetrad 7.6.3. Key source mappings for implemented code:
 
 `tests/test_java_comparison.py` — 26 pytest tests comparing Java and C++ outputs across all 7 algorithms using adjacency Jaccard and edge-type agreement metrics. Auto-skips if JAR or jpype is unavailable.
 
+## Cross-Platform Result Comparison
+
+`tests/export_results.py` — exports canonical edge lists to a JSON file for any combination of algorithms and datasets. Run on each platform and copy the files to the same machine for diffing.
+
+`tests/compare_platforms.py` — compares two JSON files produced by `export_results.py`, printing adjacency Jaccard and edge-type agreement per (algorithm, dataset). Exit code 0 means identical; 1 means differences found. Pass `--verbose` for edge-level diffs.
+
 ## Known Differences from Java 7.6.3 (Resolved)
 
 All previously identified deviations from Java 7.6.3 have been resolved:
