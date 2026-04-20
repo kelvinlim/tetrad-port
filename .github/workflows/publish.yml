@@ -81,15 +81,13 @@ jobs:
         with:
           python-version: "3.12"
 
-      - name: Build wheel
-        run: pip wheel . --no-deps -w wheelhouse
-
-      - name: Test wheel
-        run: |
-          pip install (Get-ChildItem wheelhouse/*.whl).FullName
-          pip install pytest numpy pandas
-          pytest tests/test_python_bindings.py -v
-        shell: pwsh
+      - name: Build wheels
+        uses: pypa/cibuildwheel@v2.22
+        env:
+          CIBW_BUILD: "cp312-win_amd64"
+          CIBW_ARCHS_WINDOWS: "AMD64"
+          CIBW_TEST_REQUIRES: "pytest"
+          CIBW_TEST_COMMAND: "pytest {project}/tests/test_python_bindings.py -v"
 
       - uses: actions/upload-artifact@v4
         with:

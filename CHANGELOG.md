@@ -2,6 +2,20 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.3.1] - 2026-04-20
+
+### Fixed
+
+- **Windows / Python 3.13+ install**: wheels are now tagged `cp312-abi3` (not
+  `cp312-cp312`), so a single wheel installs on Python 3.12, 3.13, 3.14+. The
+  CMake build already passed `STABLE_ABI` to nanobind; this adds the matching
+  `wheel.py-api = "cp312"` to `[tool.scikit-build]` so scikit-build-core tags
+  the wheel correctly. Previously, Python 3.13 users on Windows hit a sdist
+  build failure because no compatible wheel was published.
+- **Windows CI**: the release workflow now uses `cibuildwheel` on all three
+  platforms (previously Windows used a hand-rolled `pip wheel` step), keeping
+  the abi3 tagging consistent across Linux / macOS / Windows.
+
 ## [0.3.0] - 2026-03-11
 
 ### Changed (Breaking — Tetrad 7.6.3 semantics)
