@@ -2,6 +2,64 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Unreleased]
+
+### Fixed
+
+- **GRaSP was non-deterministic.** `Grasp::graspDfs` iterated a
+  `std::set<NodePtr>`, which orders by raw pointer address, and the loop returns
+  on the first improving tuck — so the result depended on heap layout and varied
+  between runs *in the same process*. Java iterates a `HashSet<Node>` in
+  name-hash order: arbitrary but reproducible. `sortByJavaHashOrder` is now
+  applied to the parent list, matching Java and making repeated runs identical.
+  Any accuracy figure recorded for GRaSP before this was partly measuring noise.
+
+### Added
+
+- **`References/`** — the primary literature behind every implemented algorithm:
+  19 open-access PDFs, `REFERENCES.md` (citations, DOIs, and what each paper
+  underpins), and `FunctionMapping.md`, which maps individual C++ functions to
+  exact theorem, lemma, definition and rule numbers. Every anchor was verified
+  against the PDF text rather than recalled; anything unverifiable is marked
+  NOT FOUND rather than guessed. Zhang (2008, *Artificial Intelligence*) is not
+  open access and is cited by DOI only.
+
+  `FunctionMapping.md` also records, per algorithm, every place the port
+  knowingly departs from the papers. Three of these are departures from the
+  *literature* rather than from Java 7.6.3, so they were not in the existing
+  known-differences list:
+
+  - GFCI omits Ogarrio et al. (2016) Algorithm 1 step D (Possible-D-SEP), whose
+    proof of their Theorem 7 invokes it by name.
+  - `setCompleteRuleSetUsed(true)` does not deliver Zhang's Theorem 4:
+    `FciOrient::ruleR10` is unreachable, and `ruleR6R7` applies a non-adjacency
+    check to R6 that the rule does not have — Zhang states "α and γ may or may
+    not be adjacent" in the rule itself. The port is arrowhead-complete but not
+    tail-complete.
+  - `Fas::setStable(false)` is a no-op; both ternary branches deep-copy, so the
+    search is always PC-stable.
+
+- **Simulation-based accuracy testing** — `tests/simulation.py`,
+  `tests/test_simulation.py`, `tests/run_simulation_sweep.py`. Where
+  `test_java_comparison.py` asks whether the C++ matches the Java, these ask
+  whether the algorithms recover known structure, across simulated graphs
+  varying in size, density, sample size and number of latent confounders.
+
+  Ground truth is the object each algorithm actually targets — the CPDAG for
+  PC/FGES/BOSS/GRaSP, the PAG for the FCI variants — not the raw DAG, which
+  would score every correctly-undirected edge as an orientation error. The
+  DAG→CPDAG conversion is cross-checked against Tetrad's
+  `GraphTransforms.cpdagForDag` over 150 random DAGs; PAGs come from Tetrad's
+  `DagToPag` through two new `java_oracle.py` methods.
+
+  The suite asserts accuracy floors, the consistency trend (more data must not
+  hurt), the density trend, and determinism — the last of which is what caught
+  the GRaSP bug above. `scoreboard/simulation-baseline.json` records the first
+  sweep.
+
+- **`tests/scoreboard.py` and `scoreboard/*.json` are now tracked**, having
+  previously been untracked working files.
+
 ## [0.3.1] - 2026-04-20
 
 ### Fixed
