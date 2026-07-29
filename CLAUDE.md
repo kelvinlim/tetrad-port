@@ -142,11 +142,13 @@ Where `test_java_comparison.py` asks "does the C++ match the Java?", these ask "
 
 ## Literature References
 
-`References/` holds the primary papers (19 open-access PDFs) plus two documents: `REFERENCES.md` (citations, DOIs, what each underpins) and `FunctionMapping.md`, which maps individual C++ functions to exact theorem/lemma/definition/rule numbers and records every verified deviation from the papers. Notable items recorded there and not listed below, because they are deviations from the *literature* rather than from Java 7.6.3:
+`References/` holds the primary papers (20 PDFs) plus two documents: `REFERENCES.md` (citations, DOIs, what each underpins) and `FunctionMapping.md`, which maps individual C++ functions to exact theorem/lemma/definition/rule numbers and records every verified deviation from the papers. Notable items recorded there and not listed below, because they are deviations from the *literature* rather than from Java 7.6.3:
 
 - **GFCI omits Ogarrio et al. (2016) Algorithm 1 step D (Possible-D-SEP)**, following Tetrad 7.6.3. That step is used in the proof of their Theorem 7, so the paper's asymptotic-correctness guarantee does not transfer.
-- **`FciOrient::ruleR10` is unreachable**, so `setCompleteRuleSetUsed(true)` delivers R1–R9.
+- **`setCompleteRuleSetUsed(true)` does not deliver Zhang (2008) Theorem 4 completeness.** `FciOrient::ruleR10` is unreachable, and `ruleR6R7` applies a non-adjacency check to R6 that the rule does not have (Zhang states "α and γ may or may not be adjacent"). The port is arrowhead-complete but not tail-complete.
 - **`Fas::setStable(false)` is a no-op** — both ternary branches deep-copy, so the search is always PC-stable.
+
+All FCI rule anchors are to Zhang (2008), *Artificial Intelligence* 172(16–17), in `References/papers/` — note that one paper is not open access, unlike the rest of the folder.
 
 ## Known Differences from Java 7.6.3 (Resolved)
 

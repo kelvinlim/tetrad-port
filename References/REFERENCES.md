@@ -14,13 +14,20 @@ knowingly departs from them.
 
 ## What is not here
 
-Three works are load-bearing but could not be included:
+Three works are load-bearing but are not open access, so they are cited rather
+than bundled:
 
-| Work | Why not | Consequence |
+| Work | Why not | How to get it |
 |---|---|---|
-| **Zhang (2008), *Artificial Intelligence*** — the FCI orientation rules R1–R10 | Paywalled at Elsevier (listed "bronze" open access, but ScienceDirect blocks automated retrieval) | The primary statement of the rules `FciOrient` implements is unavailable. R1–R4 and R8–R10 are recoverable from a verbatim restatement (Wang et al. 2024, Appendix A.2, included below); **R5, R6 and R7 — the selection-bias rules — have no verifiable statement in this collection at all** |
-| **Spirtes, Glymour & Scheines, *Causation, Prediction, and Search*, 2nd ed. (2000)** | Book, not open access | The canonical statement of PC and FCI. Colombo & Maathuis (2014) and Spirtes (2010) cover the same ground and are included |
-| **Spirtes & Glymour (1991)**, the original PC paper | Not open access (SAGE); the CMU KiltHub copy would not download | Superseded for citation purposes by Colombo & Maathuis (2014), which states the PC skeleton search as numbered algorithms |
+| **Zhang (2008), *Artificial Intelligence* 172(16–17), 1873–1896** — the FCI orientation rules R0–R10 | Elsevier, not open access | DOI [10.1016/j.artint.2008.08.001](https://doi.org/10.1016/j.artint.2008.08.001). Semantic Scholar reports it as "bronze" OA at the publisher, so [the ScienceDirect page](https://www.sciencedirect.com/science/article/pii/S0004370208001008) may serve it free in a browser; otherwise use an institutional subscription, or the repository listings at [Lingnan](https://commons.ln.edu.hk/sw_master/732/) or [Caltech](https://authors.library.caltech.edu/12648/) |
+| **Spirtes, Glymour & Scheines, *Causation, Prediction, and Search*, 2nd ed. (2000)** | Book | The canonical statement of PC and FCI. Colombo & Maathuis (2014) and Spirtes (2010) cover the same ground and are included |
+| **Spirtes & Glymour (1991)**, the original PC paper | SAGE; the CMU KiltHub copy would not download | DOI [10.1177/089443939100900106](https://doi.org/10.1177/089443939100900106). Superseded for citation purposes by Colombo & Maathuis (2014), which states the PC skeleton search as numbered algorithms |
+
+**Zhang (2008) is the one you will actually need.** `FunctionMapping.md` §6
+anchors every FCI orientation rule to it by section, rule label, theorem and
+definition number, so the mapping is checkable against a copy you obtain
+yourself — but `src/search/fci_orient.cpp` cannot be derived from first
+principles without it.
 
 **Schwarz (1978)** is present but is a scanned image with no text layer, so it
 can be cited bibliographically but not anchored to an equation. Ramsey (2015)
@@ -149,18 +156,23 @@ Machine Learning Research*, 9, 1437–1474.
 discovery in the presence of latent confounders and selection bias.
 *Artificial Intelligence*, 172(16–17), 1873–1896.
 · DOI: [10.1016/j.artint.2008.08.001](https://doi.org/10.1016/j.artint.2008.08.001)
-· **Not included — paywalled.** This is the primary source for rules R1–R10 in
-  `src/search/fci_orient.cpp` and for the completeness result that
-  `setCompleteRuleSetUsed(true)` claims. See the substitute below.
+· **Not bundled — not open access.** See "What is not here" above for ways to
+  obtain it.
+· The primary source for `src/search/fci_orient.cpp`: rules R0–R10 in §3.1–§3.2
+  (printed as a lettered list inside algorithm steps F3/F4, not as numbered
+  definitions), soundness in Theorem 1, and the completeness result Theorem 4
+  that `setCompleteRuleSetUsed(true)` claims. Also Definition 7 (discriminating
+  path), Definition 9 (uncovered path) and Definition 10 (potentially directed
+  path), which R4, R5, R9 and R10 are stated in terms of.
 
 **Wang, T., et al. (2024).** New rules for causal identification with background
 knowledge. arXiv preprint.
 · arXiv: [2407.15259](https://arxiv.org/abs/2407.15259)
 · `papers/wang2024-new-rules-background-knowledge.pdf`
-· **Included only as a substitute source for the rule statements.** Appendix A.2
-  restates Zhang's R1, R2, R3, R4, R8, R9 and R10 verbatim. It explicitly omits
-  R5–R7 ("triggered only if the selection bias is involved"), so those three
-  rules — both implemented in this port — remain unverifiable here.
+· Added as a substitute before Zhang (2008) was available; Appendix A.2
+  restates R1–R4 and R8–R10 verbatim but omits R5–R7. Retained as an
+  independent cross-check and for its treatment of background knowledge, but the
+  mapping now anchors to Zhang directly.
 
 **Colombo, D., Maathuis, M. H., Kalisch, M., & Richardson, T. S. (2012).**
 Learning high-dimensional directed acyclic graphs with latent and selection

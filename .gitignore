@@ -57,3 +57,11 @@ tetrad/
 
 # Reference PDF text extractions (regenerate with pdftotext; see References/REFERENCES.md)
 References/.text/
+
+# Non-open-access papers must not be committed. References/papers/ is open
+# access only; cite restricted works by DOI in References/REFERENCES.md instead.
+References/papers/zhang*completeness*
+References/papers-restricted/
+
+# Claude Code worktrees
+.claude/worktrees/

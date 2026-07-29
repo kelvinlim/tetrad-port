@@ -184,31 +184,41 @@ sufficient validity conditions and (local) change in score for each operator").
 
 ## 6. FCI orientation — `src/search/fci_orient.cpp`
 
-**This is the weakest-sourced part of the collection.** The primary reference,
-Zhang (2008) in *Artificial Intelligence*, is paywalled and not in `papers/`.
-Rules R1–R4 and R8–R10 are recoverable verbatim from Wang et al. (2024)
-Appendix A.2, which is included for that purpose. **R5, R6 and R7 — the
-selection-bias rules, both implemented here — have no verifiable statement in
-this collection.** Anyone deriving `fci_orient.cpp` from first principles needs
-that paper.
+Anchors are to **Zhang (2008), *Artificial Intelligence* 172(16–17), 1873–1896**,
+DOI [10.1016/j.artint.2008.08.001](https://doi.org/10.1016/j.artint.2008.08.001),
+which states R0–R10 in §3.1–§3.2, proves their soundness in Theorem 1, and
+proves completeness in Theorem 4. The rules are printed as a lettered list
+(`R0`…`R10`) inside the algorithm steps F3/F4, not as numbered definitions.
+
+**This paper is not open access and is therefore not in `papers/`.** The
+anchors below were verified against a copy of it, and each row quotes enough of
+the rule to be checked against your own copy; `REFERENCES.md` lists ways to
+obtain one.
 
 | C++ symbol | Paper | Anchor | Rule content as printed |
 |---|---|---|---|
-| `FciOrient::ruleR0` | ogarrio2016 | **Algorithm 1**, steps C′/F′ | "orient it as X◦→ Y ←◦Z if it is an unshielded collider in PAT" |
-| `FciOrient::ruleR1` | wang2024 (substitute) | Appendix A.2, **R1** | "If A∗→ B ◦−∗ R, and A and R are not adjacent, then orient the triple as A∗→ B → R" |
-| `FciOrient::ruleR2` | wang2024 (substitute) | Appendix A.2, **R2** | "If A → B∗→ R or A∗→ B → R, and A ∗−◦ R, then orient A ∗−◦ R as A∗→ R" |
-| `FciOrient::ruleR3` | wang2024 (substitute) | Appendix A.2, **R3** | "If A∗→ B ←∗R, A ∗−◦ D ◦−∗ R, A and R are not adjacent, and D ∗−◦ B, then orient D ∗−◦ B as D∗→ B" |
-| `FciOrient::ruleR4B`, `ddpOrient`, `doDdpOrientation` | wang2024 (substitute); colombo2012 | Appendix A.2, **R4**; **Lemma 3.2** | "If ⟨K,…,A,B,R⟩ is a discriminating path between K and R for B … then if B ∈ Sepset(K,R), orient B ◦−∗ R as B → R; otherwise orient the triple as A ↔ B ↔ R". Colombo's Lemma 3.2 is RFCI's *modified* independence-based version, explicitly not Zhang's; the code implements Zhang's sepset-membership form |
-| `FciOrient::ruleR5`, `ruleR6R7` | — | **NOT FOUND** | Selection-bias rules; absent from every paper here. Wang et al. omit them explicitly: "Since R5 − R7 are triggered only if the selection bias is involved … we omit these three rules" |
-| `FciOrient::ruleR8` | wang2024 (substitute) | Appendix A.2, **R8** | "If A → B → R, and A◦→ R, orient A◦→ R as A → R" |
-| `FciOrient::ruleR9` | wang2024 (substitute) | Appendix A.2, **R9** | "If A◦→ R, and p = ⟨A,B,D,…,R⟩ is an uncovered possible directed path from A to R such that R and B are not adjacent, then orient A◦→ R as A → R" |
-| `FciOrient::ruleR10` | wang2024 (substitute) | Appendix A.2, **R10** | "Suppose A◦→ R, B → R ← D, p1 … p2 are uncovered possible directed paths … If U and W are distinct, and are not adjacent, then orient A◦→ R as A → R" |
-| `zhangFinalOrientation` vs `spirtesFinalOrientation`, `setCompleteRuleSetUsed` | colombo2012; kalisch2012 | **Algorithm 3.1**, step 5; §2.1 | "Use rules (R1)–(R10) of [Zhang 2008] to orient as many edge marks as possible"; "The orientation rules … were slightly extended and proven to be complete in Zhang (2008)" |
-| `existsSemiDirectedPath` (used by R9/R10) | spirtes1995 | Appendix | "A semi-directed path from A to B … in which no edge contains an arrowhead pointing towards A" |
-| uncovered path | zhang2008-ancestral-reasoning | **footnote 26** | "A path is called uncovered if every consecutive triple on the path is unshielded" |
-| possibly/potentially directed path | zhang2008-ancestral-reasoning | §2.3; **footnote 11** for the synonym | "for every 0 < i ≤ n, the edge between V_{i−1} and V_i is not into V_{i−1}" |
-| circle path (R5) | — | **NOT FOUND** | |
-| discriminating path (graphical definition) | — | **NOT FOUND** | Used but never defined in any paper here. Colombo's Lemma 3.2 conditions are an independence-based surrogate |
+| `FciOrient::ruleR0` | zhang2008-completeness | **R0** (step F3) | "For each unshielded triple ⟨α,γ,β⟩ in P, orient it as a collider α∗→ γ ←∗β if and only if γ is not in Sepset(α,β)" |
+| `FciOrient::ruleR1` | zhang2008-completeness | **R1** (step F4) | "If α∗→ β◦−−∗γ, and α and γ are not adjacent, then orient the triple as α∗→ β → γ" |
+| `FciOrient::ruleR2` | zhang2008-completeness | **R2** | "If α → β∗→ γ or α∗→ β → γ, and α∗−◦γ, then orient α∗−◦γ as α∗→ γ" |
+| `FciOrient::ruleR3` | zhang2008-completeness | **R3** | "If α∗→ β ←∗γ, α∗−◦θ ◦−∗γ, α and γ are not adjacent, and θ∗−◦β, then orient θ∗−◦β as θ∗→ β" |
+| `FciOrient::ruleR4B`, `ddpOrient`, `doDdpOrientation` | zhang2008-completeness | **R4**; path defined at **Definition 7** | "if β ∈ Sepset(θ,γ), orient β◦−−∗γ as β → γ; otherwise orient the triple ⟨α,β,γ⟩ as α ↔ β ↔ γ". The code implements exactly this sepset-membership test |
+| `FciOrient::ruleR5`, `findUncoveredCirclePath` | zhang2008-completeness | **R5** | "For every (remaining) α◦−−◦β, if there is an uncovered circle path p = ⟨α,γ,…,θ,β⟩ … s.t. α,θ are not adjacent and β,γ are not adjacent, then orient α◦−−◦β and every edge on p as undirected (—)" |
+| `FciOrient::ruleR6R7` (R6 branch) | zhang2008-completeness | **R6** | "If α—β◦−−∗γ (**α and γ may or may not be adjacent**), then orient β◦−−∗γ as β−−∗γ" — see deviation below |
+| `FciOrient::ruleR6R7` (R7 branch) | zhang2008-completeness | **R7** | "If α−−◦β◦−−∗γ, and α,γ are not adjacent, then orient β◦−−∗γ as β−−∗γ" |
+| `FciOrient::ruleR8` | zhang2008-completeness | **R8** | "If α → β → γ **or α−−◦β → γ**, and α◦→γ, orient α◦→γ as α → γ". The C++ accepts both antecedents (`getEndpoint(a,b) != TAIL` admits arrow and circle) |
+| `FciOrient::ruleR9` | zhang2008-completeness | **R9** | "If α◦→γ, and p = ⟨α,β,θ,…,γ⟩ is an uncovered p.d. path from α to γ such that γ and β are not adjacent, then orient α◦→γ as α → γ" |
+| `FciOrient::ruleR10` | zhang2008-completeness | **R10** | "Suppose α◦→γ, β → γ ← θ, p1 is an uncovered p.d. path from α to β, and p2 … from α to θ. Let μ be the vertex adjacent to α on p1 … If μ and ω are distinct, and are not adjacent, then orient α◦→γ as α → γ" |
+| soundness of R5–R10 | zhang2008-completeness | **Theorem 1** | "The extra tails introduced in P_AFCI are invariant" |
+| `setCompleteRuleSetUsed(true)` → `zhangFinalOrientation` | zhang2008-completeness | **Theorem 4 (Completeness)** | "The Augmented FCI algorithm (with the additional tail inference rules R5–R10) is complete, in the sense that given a perfect conditional independence oracle, the algorithm returns the maximally informative PAG for the true causal MAG" |
+| `setCompleteRuleSetUsed(false)` → `spirtesFinalOrientation` | zhang2008-completeness | §3.1 (R0–R4 only) | R0–R4 is the original FCI set, sound but not complete — the gap this paper closes |
+| discriminating path | zhang2008-completeness | **Definition 7**; Fig. 3 | The graphical definition `ddpOrient` searches for |
+| uncovered path | zhang2008-completeness | **Definition 9** | "a path p = ⟨V_0,…,V_n⟩ is said to be uncovered if for every 1 ⩽ i ⩽ n−1, V_{i−1} and V_{i+1} are not adjacent" |
+| potentially directed (p.d.) path | zhang2008-completeness | **Definition 10** | "for every 0 ⩽ i ⩽ n−1, the edge between V_i and V_{i+1} is not into V_i or out of V_{i+1}" |
+| circle path (R5) | zhang2008-completeness | §3.2, following Definition 10 | "A special case of a p.d. path is where every edge on the path is of the form ◦−−◦; we call such a path a circle path" |
+| MAG, maximality, inducing path | zhang2008-completeness | **Definitions 1, 3, 4** | |
+| PAG semantics | zhang2008-completeness | **Definition 8**; also zhang2008-ancestral-reasoning **Definition 3** | |
+| Markov equivalence of MAGs | zhang2008-completeness | **Definition 5**; **Proposition 2** (the (e1)–(e3) criterion R4 is motivated by) | |
+| `existsSemiDirectedPath` | spirtes1995 | Appendix | "A semi-directed path from A to B … in which no edge contains an arrowhead pointing towards A" |
 | `FciOrient::fciOrientbk`, `isArrowheadAllowed` | — | **NOT FOUND** | Knowledge gating; Tetrad-specific |
 | MAG semantics | zhang2008-ancestral-reasoning | **Definition 1** | "no directed or almost directed cycles (ancestral); and … no inducing path between any two non-adjacent vertices (maximal)" |
 | PAG semantics — what the output *means* | zhang2008-ancestral-reasoning | **Definition 3** | "A mark of arrowhead is in P_[M] if and only if it is shared by all MAGs in [M]" |
@@ -219,8 +229,17 @@ that paper.
 
 ### Deviations
 
-Two bugs are **intentionally preserved** from Tetrad 7.6.3, both confirmed
-present in the code:
+- **R6 requires a non-adjacency the rule does not have.** `fci_orient.cpp:523`
+  applies `if (graph.isAdjacentTo(a, c)) continue;` to the R6 and R7 branches
+  alike. R7 does require `α, γ` non-adjacent; **R6 does not**, and Zhang says so
+  in the rule statement itself — "(α and γ may or may not be adjacent)". The
+  code comment at `fci_orient.cpp:522` records this as intentional 7.6.3
+  behaviour, so it is a faithful port, but the effect is that R6 fires strictly
+  less often than the complete rule set prescribes. Combined with the dead R10
+  below, `setCompleteRuleSetUsed(true)` does not deliver Theorem 4's guarantee.
+
+Two further bugs are **intentionally preserved** from Tetrad 7.6.3, both
+confirmed present in the code:
 
 - **R3 aborts the whole pass.** `fci_orient.cpp:341-342` uses `return`, not
   `continue`, when `isArrowheadAllowed` fails. Because that sits in the
@@ -236,7 +255,10 @@ present in the code:
   The structurally parallel `beta` guard eight lines earlier is written the
   other way round (`getEndpoint(gamma, beta)`), which is the signature of the
   slip. Consequence: `setCompleteRuleSetUsed(true)` delivers R1–R9, not R1–R10,
-  and `rulesR8R9R10` is effectively R8-then-R9.
+  and `rulesR8R9R10` is effectively R8-then-R9. R10 is one of the tail-inference
+  rules Theorem 4's completeness proof depends on, so the port is
+  arrowhead-complete but not tail-complete: some `◦→` edges that the rule set
+  would resolve to `→` will be left with a circle.
 
 ---
 
@@ -373,5 +395,3 @@ Worth correcting when those files are next touched:
   **2024**; it is NeurIPS **2023**.
 - `src/search/teyssier_scorer.h` cites Teyssier & Koller **(2012)**; the paper
   is UAI **2005**.
-- `src/search/fci_orient.h` cites Zhang (2008) correctly, but that paper is not
-  held locally — see §6.
