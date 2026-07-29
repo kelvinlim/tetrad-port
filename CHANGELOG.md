@@ -11,8 +11,50 @@ All notable changes to this project will be documented in this file.
   on the first improving tuck — so the result depended on heap layout and varied
   between runs *in the same process*. Java iterates a `HashSet<Node>` in
   name-hash order: arbitrary but reproducible. `sortByJavaHashOrder` is now
-  applied to the parent list, matching Java and making repeated runs identical.
-  Any accuracy figure recorded for GRaSP before this was partly measuring noise.
+  applied to the parent list, so repeated runs are identical.
+
+  Measured on Boston EMA, 20 runs before the fix: `grasp` returned three
+  distinct results (Jaccard/type `0.833/0.840` ×8, `0.862/0.880` ×5,
+  `1.000/1.000` ×7) and `grasp_fci` returned four. **Every GRaSP and GRaSP-FCI
+  figure recorded before this fix was a single draw from a distribution**, so
+  historical before/after comparisons of those cells mean nothing — including
+  the apparent GRaSP gain and GRaSP-FCI regression in `JavaCPPComparison.md`.
+
+  Determinism is achieved; **agreement with Java is not yet right, and the cause
+  is still open.** Post-fix, `grasp/boston` settles deterministically on
+  `0.862/0.880` — yet perfect agreement (`1.000/1.000`) occurred in 7 of the 20
+  pre-fix runs, so the Java-matching trajectory is reachable and this is a
+  tie-breaking difference somewhere, not a numerical one.
+
+  What has been ruled out, by experiment rather than inspection:
+
+  - **Not the restart shuffle.** Both sides default to `useDataOrder = true`,
+    `numStarts = 1`, so neither shuffles and no RNG is involved.
+  - **Not the within-bucket tie-break in the parent list.** Sweeping seven
+    orderings through `graspDfs` (bucket order with ties broken by name, reverse
+    name, permutation index, reverse permutation index; plus pure name order)
+    gave byte-identical results for every bucket-based variant: `0.862/0.880`.
+    Only discarding bucket order entirely (pure permutation order) moved the
+    number, and it moved it the wrong way, to `0.833/0.840`. So bucket order is
+    doing real work and is probably correct; the tie-break within it is not the
+    lever. Collisions do exist among the 14 Boston names — `{TST,
+    PANAS_NA_lag, PHQ9_lag}`, `{TIB, TIB_lag}`, `{PANAS_NA, worry_scale}`,
+    `{alcohol_bev, PANAS_PA_lag}` at capacity 16 — but evidently not inside the
+    small parent sets the search actually encounters.
+  - **`graspDfs` itself is not implicated**: its body was checked line by line
+    against `Grasp.java:439-500`, including the `do/while` with the `first` flag.
+
+  The residual disagreement is therefore upstream of parent iteration order.
+  Adjacency differs, not just orientation (`grasp/boston`: same 27 edges, but
+  Java has `PHQ9_lag–TIB_lag` and `PHQ9_lag–TST_lag` where C++ has
+  `PANAS_NA_lag–TST_lag` and `PHQ9_lag–worry_scale_lag`), which means the search
+  settled on a different permutation rather than merely orienting one
+  differently. Remaining suspects, in order of likelihood: tie-breaking inside
+  `GrowShrinkTree` grow/shrink, which decides *which* parents are found at all;
+  and edge insertion order in `TeyssierScorer::getGraph`, which would explain the
+  three mark disagreements but not the adjacency ones. The next probe is to
+  instrument the first divergent tuck decision on this dataset and compare it
+  against Java at that point.
 
 ### Added
 
