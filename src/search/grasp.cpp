@@ -1,4 +1,5 @@
 #include "search/grasp.h"
+#include "util/java_hash.h"
 #include <algorithm>
 #include <limits>
 #include <numeric>
@@ -110,7 +111,17 @@ void Grasp::graspDfs(TeyssierScorer& scorer, double sOld, const std::vector<int>
 
     for (const auto& y : vars) {
         auto ancestors = scorer.getAncestors(y);
-        auto parents = scorer.getParents(y);
+        auto parentSet = scorer.getParents(y);
+
+        // Java: List<Node> parents = new ArrayList<>(scorer.getParents(y));
+        // (Grasp.java:449). getParents returns a HashSet<Node>, so Java's
+        // iteration order is name-hash bucket order — arbitrary but deterministic.
+        // std::set<NodePtr> orders by raw pointer address instead, which varies
+        // with heap layout between runs in the same process. Since the loop below
+        // returns on the first improving tuck, that order fully determines the
+        // result: without this, GRaSP is non-deterministic.
+        std::vector<NodePtr> parents(parentSet.begin(), parentSet.end());
+        sortByJavaHashOrder(parents);
 
         for (const auto& x : parents) {
             bool covered = scorer.coveredEdge(x, y);

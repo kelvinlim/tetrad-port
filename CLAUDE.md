@@ -128,6 +128,26 @@ This is a port from Java Tetrad 7.6.3. Key source mappings for implemented code:
 
 `tests/compare_platforms.py` — compares two JSON files produced by `export_results.py`, printing adjacency Jaccard and edge-type agreement per (algorithm, dataset). Exit code 0 means identical; 1 means differences found. Pass `--verbose` for edge-level diffs.
 
+## Simulation-Based Accuracy Testing
+
+Where `test_java_comparison.py` asks "does the C++ match the Java?", these ask "does the algorithm recover the truth?" — against known ground truth on simulated graphs of differing size and complexity.
+
+`tests/simulation.py` — random DAG and linear-Gaussian SEM simulators parameterised by node count, average degree, sample size and number of latent confounders; a self-contained DAG→CPDAG conversion (cross-checked against Tetrad's `GraphTransforms.cpdagForDag`); and endpoint-level metrics (skeleton precision/recall/F1/SHD, arrowhead precision/recall, endpoint SHD). CPDAG algorithms are scored against the true CPDAG, FCI variants against the true PAG from Tetrad's `DagToPag` — not against the raw DAG, which would penalise correct output.
+
+`tests/test_simulation.py` — accuracy floors, the consistency trend (more data must not hurt), the density trend, and determinism. Large graphs are behind `--runslow`.
+
+`tests/run_simulation_sweep.py` — records the full sweep to `scoreboard/simulation-<label>.json` plus a Markdown summary; `--compare A B` diffs two recordings.
+
+`tests/java_oracle.py` also exposes `dag_to_cpdag()` and `dag_to_pag()` for ground truth.
+
+## Literature References
+
+`References/` holds the primary papers (19 open-access PDFs) plus two documents: `REFERENCES.md` (citations, DOIs, what each underpins) and `FunctionMapping.md`, which maps individual C++ functions to exact theorem/lemma/definition/rule numbers and records every verified deviation from the papers. Notable items recorded there and not listed below, because they are deviations from the *literature* rather than from Java 7.6.3:
+
+- **GFCI omits Ogarrio et al. (2016) Algorithm 1 step D (Possible-D-SEP)**, following Tetrad 7.6.3. That step is used in the proof of their Theorem 7, so the paper's asymptotic-correctness guarantee does not transfer.
+- **`FciOrient::ruleR10` is unreachable**, so `setCompleteRuleSetUsed(true)` delivers R1–R9.
+- **`Fas::setStable(false)` is a no-op** — both ternary branches deep-copy, so the search is always PC-stable.
+
 ## Known Differences from Java 7.6.3 (Resolved)
 
 All previously identified deviations from Java 7.6.3 have been resolved:

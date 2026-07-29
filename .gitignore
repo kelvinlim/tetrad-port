@@ -54,3 +54,6 @@ r/rtetrad_*.tar.gz
 
 # tetrad linked directory
 tetrad/
+
+# Reference PDF text extractions (regenerate with pdftotext; see References/REFERENCES.md)
+References/.text/

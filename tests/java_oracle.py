@@ -75,6 +75,7 @@ class TetradOracle:
         self._ts = jpype.JPackage("edu.cmu.tetrad.search")
         self._score_pkg = jpype.JPackage("edu.cmu.tetrad.search.score")
         self._test_pkg = jpype.JPackage("edu.cmu.tetrad.search.test")
+        self._graph_pkg = jpype.JPackage("edu.cmu.tetrad.graph")
 
     # ------------------------------------------------------------------
     # Public API
@@ -117,6 +118,58 @@ class TetradOracle:
             raise RuntimeError(f"Java exception in {algo}: {e}") from e
 
         return _parse_edges(graph_str)
+
+    # ------------------------------------------------------------------
+    # Ground truth: DAG -> CPDAG and DAG -> PAG
+    # ------------------------------------------------------------------
+    #
+    # A simulation knows the true DAG, but no algorithm here returns a DAG:
+    # PC/FGES/BOSS/GRaSP return the CPDAG of its Markov equivalence class, and
+    # the FCI variants return the PAG over the observed margin. Scoring output
+    # against the raw DAG therefore penalises correct answers. These two
+    # methods produce the object each algorithm class is actually trying to
+    # recover, using Tetrad's own transforms so the ground truth cannot drift
+    # from the reference implementation's conventions.
+
+    def dag_to_cpdag(self, b: np.ndarray, names: list[str]) -> list[str]:
+        """CPDAG of the DAG encoded by weighted adjacency ``b`` (b[i,j] != 0 means i -> j)."""
+        dag = self._build_dag(b, names, latents=())
+        return _parse_edges(self._graph_pkg.GraphTransforms.cpdagForDag(dag).toString())
+
+    def dag_to_pag(self, b: np.ndarray, names: list[str],
+                   latents: "list[str] | tuple[str, ...]" = ()) -> list[str]:
+        """
+        PAG over the non-latent variables of the DAG encoded by ``b``.
+
+        ``latents`` names the columns marked ``NodeType.LATENT``; Tetrad's
+        DagToPag marginalises them out, adding bidirected edges for confounding
+        and preserving inducing paths, which a plain sub-DAG of ``b`` would miss.
+        """
+        dag = self._build_dag(b, names, latents)
+        conv = self._ts.utils.DagToPag(dag)
+        conv.setCompleteRuleSetUsed(True)
+        conv.setMaxPathLength(-1)
+        conv.setVerbose(False)
+        return _parse_edges(conv.convert().toString())
+
+    def _build_dag(self, b: np.ndarray, names: list[str],
+                   latents: "list[str] | tuple[str, ...]"):
+        latent_set = set(latents)
+        nodes = {}
+        node_list = self._util.ArrayList()
+        for name in names:
+            node = self._graph_pkg.GraphNode(str(name))
+            if name in latent_set:
+                node.setNodeType(self._graph_pkg.NodeType.LATENT)
+            nodes[name] = node
+            node_list.add(node)
+
+        graph = self._graph_pkg.EdgeListGraph(node_list)
+        for i in range(b.shape[0]):
+            for j in range(b.shape[1]):
+                if b[i, j] != 0:
+                    graph.addDirectedEdge(nodes[names[i]], nodes[names[j]])
+        return graph
 
     # ------------------------------------------------------------------
     # Internal helpers

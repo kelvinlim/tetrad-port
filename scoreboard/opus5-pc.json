@@ -1,0 +1,1915 @@
+{
+  "metadata": {
+    "algorithms": [
+      "pc",
+      "fges",
+      "gfci",
+      "boss",
+      "boss_fci",
+      "grasp",
+      "grasp_fci"
+    ],
+    "alpha": 0.01,
+    "datasets": [
+      "chain",
+      "collider",
+      "latent",
+      "medium_dag",
+      "medium_latents",
+      "boston"
+    ],
+    "jar": "tetrad-gui-7.6.3-launch.jar",
+    "label": "opus5 blind re-derivation of pc+meek_rules",
+    "penalty_discount": 1.0,
+    "platform": "Linux-6.17.0-1030-oem-x86_64-with-glibc2.39",
+    "python": "3.12.3",
+    "tetrad_port_version": "0.3.1",
+    "timestamp": "2026-07-29T13:08:23.474936+00:00"
+  },
+  "results": {
+    "boss/boston": {
+      "adjacency_jaccard": 1.0,
+      "cpp_edge_count": 30,
+      "cpp_edges": [
+        "PANAS_NA --- PHQ9",
+        "PANAS_NA --> TIB",
+        "PANAS_NA --> worry_scale",
+        "PANAS_NA_lag --- worry_scale_lag",
+        "PANAS_NA_lag --> PANAS_NA",
+        "PANAS_NA_lag --> PHQ9",
+        "PANAS_NA_lag --> PHQ9_lag",
+        "PANAS_NA_lag --> TIB_lag",
+        "PANAS_PA_lag --> PANAS_PA",
+        "PANAS_PA_lag --> TST_lag",
+        "PHQ9 --> PANAS_PA",
+        "PHQ9 --> TIB",
+        "PHQ9_lag --> PANAS_NA",
+        "PHQ9_lag --> PANAS_PA",
+        "PHQ9_lag --> PANAS_PA_lag",
+        "PHQ9_lag --> PHQ9",
+        "PHQ9_lag --> TIB_lag",
+        "TIB_lag --> TIB",
+        "TST --> TIB",
+        "TST_lag --> TIB",
+        "TST_lag --> TIB_lag",
+        "TST_lag --> TST",
+        "alcohol_bev_lag --> PHQ9_lag",
+        "alcohol_bev_lag --> alcohol_bev",
+        "worry_scale --> PANAS_PA",
+        "worry_scale --> TIB",
+        "worry_scale_lag --- alcohol_bev_lag",
+        "worry_scale_lag --> PANAS_PA_lag",
+        "worry_scale_lag --> TIB_lag",
+        "worry_scale_lag --> worry_scale"
+      ],
+      "disagreements": [],
+      "java_edge_count": 30,
+      "java_edges": [
+        "PANAS_NA --- PHQ9",
+        "PANAS_NA --> TIB",
+        "PANAS_NA --> worry_scale",
+        "PANAS_NA_lag --- worry_scale_lag",
+        "PANAS_NA_lag --> PANAS_NA",
+        "PANAS_NA_lag --> PHQ9",
+        "PANAS_NA_lag --> PHQ9_lag",
+        "PANAS_NA_lag --> TIB_lag",
+        "PANAS_PA_lag --> PANAS_PA",
+        "PANAS_PA_lag --> TST_lag",
+        "PHQ9 --> PANAS_PA",
+        "PHQ9 --> TIB",
+        "PHQ9_lag --> PANAS_NA",
+        "PHQ9_lag --> PANAS_PA",
+        "PHQ9_lag --> PANAS_PA_lag",
+        "PHQ9_lag --> PHQ9",
+        "PHQ9_lag --> TIB_lag",
+        "TIB_lag --> TIB",
+        "TST --> TIB",
+        "TST_lag --> TIB",
+        "TST_lag --> TIB_lag",
+        "TST_lag --> TST",
+        "alcohol_bev_lag --> PHQ9_lag",
+        "alcohol_bev_lag --> alcohol_bev",
+        "worry_scale --> PANAS_PA",
+        "worry_scale --> TIB",
+        "worry_scale_lag --- alcohol_bev_lag",
+        "worry_scale_lag --> PANAS_PA_lag",
+        "worry_scale_lag --> TIB_lag",
+        "worry_scale_lag --> worry_scale"
+      ],
+      "only_cpp": [],
+      "only_java": [],
+      "type_agreement": 1.0
+    },
+    "boss/chain": {
+      "adjacency_jaccard": 1.0,
+      "cpp_edge_count": 2,
+      "cpp_edges": [
+        "X --- Y",
+        "Y --- Z"
+      ],
+      "disagreements": [],
+      "ground_truth": {
+        "cpp": {
+          "arrowhead_precision": null,
+          "arrowheads_emitted": 0,
+          "skeleton_f1": 1.0,
+          "skeleton_precision": 1.0,
+          "skeleton_recall": 1.0,
+          "skeleton_shd": 0
+        },
+        "java": {
+          "arrowhead_precision": null,
+          "arrowheads_emitted": 0,
+          "skeleton_f1": 1.0,
+          "skeleton_precision": 1.0,
+          "skeleton_recall": 1.0,
+          "skeleton_shd": 0
+        },
+        "n_hidden": 0
+      },
+      "java_edge_count": 2,
+      "java_edges": [
+        "X --- Y",
+        "Y --- Z"
+      ],
+      "only_cpp": [],
+      "only_java": [],
+      "type_agreement": 1.0
+    },
+    "boss/collider": {
+      "adjacency_jaccard": 1.0,
+      "cpp_edge_count": 2,
+      "cpp_edges": [
+        "X --> Z",
+        "Y --> Z"
+      ],
+      "disagreements": [],
+      "ground_truth": {
+        "cpp": {
+          "arrowhead_precision": 1.0,
+          "arrowheads_emitted": 2,
+          "skeleton_f1": 1.0,
+          "skeleton_precision": 1.0,
+          "skeleton_recall": 1.0,
+          "skeleton_shd": 0
+        },
+        "java": {
+          "arrowhead_precision": 1.0,
+          "arrowheads_emitted": 2,
+          "skeleton_f1": 1.0,
+          "skeleton_precision": 1.0,
+          "skeleton_recall": 1.0,
+          "skeleton_shd": 0
+        },
+        "n_hidden": 0
+      },
+      "java_edge_count": 2,
+      "java_edges": [
+        "X --> Z",
+        "Y --> Z"
+      ],
+      "only_cpp": [],
+      "only_java": [],
+      "type_agreement": 1.0
+    },
+    "boss/latent": {
+      "adjacency_jaccard": 1.0,
+      "cpp_edge_count": 2,
+      "cpp_edges": [
+        "X --- Y",
+        "X --- Z"
+      ],
+      "disagreements": [],
+      "java_edge_count": 2,
+      "java_edges": [
+        "X --- Y",
+        "X --- Z"
+      ],
+      "only_cpp": [],
+      "only_java": [],
+      "type_agreement": 1.0
+    },
+    "boss/medium_dag": {
+      "adjacency_jaccard": 1.0,
+      "cpp_edge_count": 12,
+      "cpp_edges": [
+        "V0 --- V2",
+        "V0 --> V4",
+        "V1 --- V3",
+        "V1 --> V6",
+        "V1 --> V7",
+        "V2 --> V4",
+        "V2 --> V6",
+        "V2 --> V7",
+        "V3 --> V4",
+        "V3 --> V6",
+        "V3 --> V7",
+        "V5 --> V6"
+      ],
+      "disagreements": [],
+      "ground_truth": {
+        "cpp": {
+          "arrowhead_precision": 1.0,
+          "arrowheads_emitted": 10,
+          "skeleton_f1": 1.0,
+          "skeleton_precision": 1.0,
+          "skeleton_recall": 1.0,
+          "skeleton_shd": 0
+        },
+        "java": {
+          "arrowhead_precision": 1.0,
+          "arrowheads_emitted": 10,
+          "skeleton_f1": 1.0,
+          "skeleton_precision": 1.0,
+          "skeleton_recall": 1.0,
+          "skeleton_shd": 0
+        },
+        "n_hidden": 0
+      },
+      "java_edge_count": 12,
+      "java_edges": [
+        "V0 --- V2",
+        "V0 --> V4",
+        "V1 --- V3",
+        "V1 --> V6",
+        "V1 --> V7",
+        "V2 --> V4",
+        "V2 --> V6",
+        "V2 --> V7",
+        "V3 --> V4",
+        "V3 --> V6",
+        "V3 --> V7",
+        "V5 --> V6"
+      ],
+      "only_cpp": [],
+      "only_java": [],
+      "type_agreement": 1.0
+    },
+    "boss/medium_latents": {
+      "adjacency_jaccard": 1.0,
+      "cpp_edge_count": 11,
+      "cpp_edges": [
+        "V0 --- V2",
+        "V0 --> V4",
+        "V1 --> V4",
+        "V1 --> V5",
+        "V1 --> V7",
+        "V2 --- V3",
+        "V2 --> V4",
+        "V2 --> V6",
+        "V2 --> V7",
+        "V3 --> V5",
+        "V4 --> V6"
+      ],
+      "disagreements": [],
+      "ground_truth": {
+        "cpp": {
+          "skeleton_f1": 1.0,
+          "skeleton_precision": 1.0,
+          "skeleton_recall": 1.0,
+          "skeleton_shd": 0
+        },
+        "java": {
+          "skeleton_f1": 1.0,
+          "skeleton_precision": 1.0,
+          "skeleton_recall": 1.0,
+          "skeleton_shd": 0
+        },
+        "n_hidden": 2
+      },
+      "java_edge_count": 11,
+      "java_edges": [
+        "V0 --- V2",
+        "V0 --> V4",
+        "V1 --> V4",
+        "V1 --> V5",
+        "V1 --> V7",
+        "V2 --- V3",
+        "V2 --> V4",
+        "V2 --> V6",
+        "V2 --> V7",
+        "V3 --> V5",
+        "V4 --> V6"
+      ],
+      "only_cpp": [],
+      "only_java": [],
+      "type_agreement": 1.0
+    },
+    "boss_fci/boston": {
+      "adjacency_jaccard": 1.0,
+      "cpp_edge_count": 21,
+      "cpp_edges": [
+        "PANAS_NA --> worry_scale",
+        "PANAS_NA <-> PANAS_NA_lag",
+        "PANAS_NA_lag --> worry_scale_lag",
+        "PANAS_NA_lag <-> PHQ9_lag",
+        "PANAS_PA <-> PHQ9",
+        "PANAS_PA_lag --> PANAS_PA",
+        "PANAS_PA_lag --> TST_lag",
+        "PHQ9 --> PANAS_NA",
+        "PHQ9 <-> PANAS_NA_lag",
+        "PHQ9_lag --> PANAS_PA_lag",
+        "PHQ9_lag --> PHQ9",
+        "TIB <-> TST",
+        "TIB_lag --> TIB",
+        "TST_lag --> TIB_lag",
+        "TST_lag --> TST",
+        "alcohol_bev_lag --> PHQ9_lag",
+        "alcohol_bev_lag --> alcohol_bev",
+        "worry_scale --> PANAS_PA",
+        "worry_scale_lag --> PANAS_PA_lag",
+        "worry_scale_lag --> alcohol_bev_lag",
+        "worry_scale_lag --> worry_scale"
+      ],
+      "disagreements": [],
+      "java_edge_count": 21,
+      "java_edges": [
+        "PANAS_NA --> worry_scale",
+        "PANAS_NA <-> PANAS_NA_lag",
+        "PANAS_NA_lag --> worry_scale_lag",
+        "PANAS_PA <-> PHQ9",
+        "PANAS_PA_lag --> PANAS_PA",
+        "PANAS_PA_lag --> TST_lag",
+        "PHQ9 --> PANAS_NA",
+        "PHQ9 <-> PANAS_NA_lag",
+        "PHQ9_lag --> PANAS_PA_lag",
+        "PHQ9_lag --> PHQ9",
+        "PHQ9_lag <-> PANAS_NA_lag",
+        "TIB <-> TST",
+        "TIB_lag --> TIB",
+        "TST_lag --> TIB_lag",
+        "TST_lag --> TST",
+        "alcohol_bev_lag --> PHQ9_lag",
+        "alcohol_bev_lag --> alcohol_bev",
+        "worry_scale --> PANAS_PA",
+        "worry_scale_lag --> PANAS_PA_lag",
+        "worry_scale_lag --> alcohol_bev_lag",
+        "worry_scale_lag --> worry_scale"
+      ],
+      "only_cpp": [],
+      "only_java": [],
+      "type_agreement": 1.0
+    },
+    "boss_fci/chain": {
+      "adjacency_jaccard": 1.0,
+      "cpp_edge_count": 2,
+      "cpp_edges": [
+        "X o-o Y",
+        "Y o-o Z"
+      ],
+      "disagreements": [],
+      "ground_truth": {
+        "cpp": {
+          "arrowhead_precision": null,
+          "arrowheads_emitted": 0,
+          "skeleton_f1": 1.0,
+          "skeleton_precision": 1.0,
+          "skeleton_recall": 1.0,
+          "skeleton_shd": 0
+        },
+        "java": {
+          "arrowhead_precision": null,
+          "arrowheads_emitted": 0,
+          "skeleton_f1": 1.0,
+          "skeleton_precision": 1.0,
+          "skeleton_recall": 1.0,
+          "skeleton_shd": 0
+        },
+        "n_hidden": 0
+      },
+      "java_edge_count": 2,
+      "java_edges": [
+        "X o-o Y",
+        "Y o-o Z"
+      ],
+      "only_cpp": [],
+      "only_java": [],
+      "type_agreement": 1.0
+    },
+    "boss_fci/collider": {
+      "adjacency_jaccard": 1.0,
+      "cpp_edge_count": 2,
+      "cpp_edges": [
+        "X o-> Z",
+        "Y o-> Z"
+      ],
+      "disagreements": [],
+      "ground_truth": {
+        "cpp": {
+          "arrowhead_precision": 1.0,
+          "arrowheads_emitted": 2,
+          "skeleton_f1": 1.0,
+          "skeleton_precision": 1.0,
+          "skeleton_recall": 1.0,
+          "skeleton_shd": 0
+        },
+        "java": {
+          "arrowhead_precision": 1.0,
+          "arrowheads_emitted": 2,
+          "skeleton_f1": 1.0,
+          "skeleton_precision": 1.0,
+          "skeleton_recall": 1.0,
+          "skeleton_shd": 0
+        },
+        "n_hidden": 0
+      },
+      "java_edge_count": 2,
+      "java_edges": [
+        "X o-> Z",
+        "Y o-> Z"
+      ],
+      "only_cpp": [],
+      "only_java": [],
+      "type_agreement": 1.0
+    },
+    "boss_fci/latent": {
+      "adjacency_jaccard": 1.0,
+      "cpp_edge_count": 2,
+      "cpp_edges": [
+        "X o-o Y",
+        "X o-o Z"
+      ],
+      "disagreements": [],
+      "java_edge_count": 2,
+      "java_edges": [
+        "X o-o Y",
+        "X o-o Z"
+      ],
+      "only_cpp": [],
+      "only_java": [],
+      "type_agreement": 1.0
+    },
+    "boss_fci/medium_dag": {
+      "adjacency_jaccard": 1.0,
+      "cpp_edge_count": 10,
+      "cpp_edges": [
+        "V0 o-> V4",
+        "V1 --> V6",
+        "V1 <-> V7",
+        "V2 o-> V4",
+        "V2 o-> V6",
+        "V2 o-> V7",
+        "V3 --> V6",
+        "V3 o-> V1",
+        "V3 o-> V4",
+        "V5 o-> V6"
+      ],
+      "disagreements": [],
+      "ground_truth": {
+        "cpp": {
+          "arrowhead_precision": 0.8182,
+          "arrowheads_emitted": 11,
+          "skeleton_f1": 0.9091,
+          "skeleton_precision": 1.0,
+          "skeleton_recall": 0.8333,
+          "skeleton_shd": 2
+        },
+        "java": {
+          "arrowhead_precision": 0.8182,
+          "arrowheads_emitted": 11,
+          "skeleton_f1": 0.9091,
+          "skeleton_precision": 1.0,
+          "skeleton_recall": 0.8333,
+          "skeleton_shd": 2
+        },
+        "n_hidden": 0
+      },
+      "java_edge_count": 10,
+      "java_edges": [
+        "V0 o-> V4",
+        "V1 --> V6",
+        "V1 <-> V7",
+        "V2 o-> V4",
+        "V2 o-> V6",
+        "V2 o-> V7",
+        "V3 --> V6",
+        "V3 o-> V1",
+        "V3 o-> V4",
+        "V5 o-> V6"
+      ],
+      "only_cpp": [],
+      "only_java": [],
+      "type_agreement": 1.0
+    },
+    "boss_fci/medium_latents": {
+      "adjacency_jaccard": 1.0,
+      "cpp_edge_count": 10,
+      "cpp_edges": [
+        "V0 o-> V4",
+        "V0 o-o V2",
+        "V1 o-> V4",
+        "V1 o-> V5",
+        "V1 o-> V7",
+        "V2 o-> V4",
+        "V2 o-> V7",
+        "V2 o-o V3",
+        "V3 o-> V5",
+        "V6 o-> V4"
+      ],
+      "disagreements": [],
+      "ground_truth": {
+        "cpp": {
+          "skeleton_f1": 0.9524,
+          "skeleton_precision": 1.0,
+          "skeleton_recall": 0.9091,
+          "skeleton_shd": 1
+        },
+        "java": {
+          "skeleton_f1": 0.9524,
+          "skeleton_precision": 1.0,
+          "skeleton_recall": 0.9091,
+          "skeleton_shd": 1
+        },
+        "n_hidden": 2
+      },
+      "java_edge_count": 10,
+      "java_edges": [
+        "V0 o-> V4",
+        "V0 o-o V2",
+        "V1 o-> V4",
+        "V1 o-> V5",
+        "V1 o-> V7",
+        "V2 o-> V4",
+        "V2 o-> V7",
+        "V2 o-o V3",
+        "V3 o-> V5",
+        "V6 o-> V4"
+      ],
+      "only_cpp": [],
+      "only_java": [],
+      "type_agreement": 1.0
+    },
+    "fges/boston": {
+      "adjacency_jaccard": 1.0,
+      "cpp_edge_count": 29,
+      "cpp_edges": [
+        "PANAS_NA --> worry_scale",
+        "PANAS_NA_lag --- PANAS_PA_lag",
+        "PANAS_NA_lag --- TIB_lag",
+        "PANAS_NA_lag --- worry_scale_lag",
+        "PANAS_NA_lag --> PANAS_NA",
+        "PANAS_NA_lag --> PHQ9",
+        "PANAS_NA_lag --> PHQ9_lag",
+        "PANAS_PA_lag --> PANAS_PA",
+        "PANAS_PA_lag --> PHQ9_lag",
+        "PHQ9 --> PANAS_NA",
+        "PHQ9 --> PANAS_PA",
+        "PHQ9_lag --> PANAS_NA",
+        "PHQ9_lag --> PANAS_PA",
+        "PHQ9_lag --> PHQ9",
+        "TIB --> PANAS_NA",
+        "TIB --> TST",
+        "TIB_lag --> PHQ9_lag",
+        "TIB_lag --> TIB",
+        "TIB_lag --> TST",
+        "TIB_lag --> TST_lag",
+        "TST_lag --> PHQ9_lag",
+        "TST_lag --> TST",
+        "alcohol_bev_lag --- worry_scale_lag",
+        "alcohol_bev_lag --> alcohol_bev",
+        "worry_scale --> PANAS_PA",
+        "worry_scale --> TST",
+        "worry_scale_lag --- PANAS_PA_lag",
+        "worry_scale_lag --> TST_lag",
+        "worry_scale_lag --> worry_scale"
+      ],
+      "disagreements": [],
+      "java_edge_count": 29,
+      "java_edges": [
+        "PANAS_NA --> worry_scale",
+        "PANAS_NA_lag --- PANAS_PA_lag",
+        "PANAS_NA_lag --- TIB_lag",
+        "PANAS_NA_lag --- worry_scale_lag",
+        "PANAS_NA_lag --> PANAS_NA",
+        "PANAS_NA_lag --> PHQ9",
+        "PANAS_NA_lag --> PHQ9_lag",
+        "PANAS_PA_lag --> PANAS_PA",
+        "PANAS_PA_lag --> PHQ9_lag",
+        "PHQ9 --> PANAS_NA",
+        "PHQ9 --> PANAS_PA",
+        "PHQ9_lag --> PANAS_NA",
+        "PHQ9_lag --> PANAS_PA",
+        "PHQ9_lag --> PHQ9",
+        "TIB --> PANAS_NA",
+        "TIB --> TST",
+        "TIB_lag --> PHQ9_lag",
+        "TIB_lag --> TIB",
+        "TIB_lag --> TST",
+        "TIB_lag --> TST_lag",
+        "TST_lag --> PHQ9_lag",
+        "TST_lag --> TST",
+        "alcohol_bev_lag --> alcohol_bev",
+        "worry_scale --> PANAS_PA",
+        "worry_scale --> TST",
+        "worry_scale_lag --- PANAS_PA_lag",
+        "worry_scale_lag --- alcohol_bev_lag",
+        "worry_scale_lag --> TST_lag",
+        "worry_scale_lag --> worry_scale"
+      ],
+      "only_cpp": [],
+      "only_java": [],
+      "type_agreement": 1.0
+    },
+    "fges/chain": {
+      "adjacency_jaccard": 1.0,
+      "cpp_edge_count": 2,
+      "cpp_edges": [
+        "X --- Y",
+        "Y --- Z"
+      ],
+      "disagreements": [],
+      "ground_truth": {
+        "cpp": {
+          "arrowhead_precision": null,
+          "arrowheads_emitted": 0,
+          "skeleton_f1": 1.0,
+          "skeleton_precision": 1.0,
+          "skeleton_recall": 1.0,
+          "skeleton_shd": 0
+        },
+        "java": {
+          "arrowhead_precision": null,
+          "arrowheads_emitted": 0,
+          "skeleton_f1": 1.0,
+          "skeleton_precision": 1.0,
+          "skeleton_recall": 1.0,
+          "skeleton_shd": 0
+        },
+        "n_hidden": 0
+      },
+      "java_edge_count": 2,
+      "java_edges": [
+        "Y --- X",
+        "Y --- Z"
+      ],
+      "only_cpp": [],
+      "only_java": [],
+      "type_agreement": 1.0
+    },
+    "fges/collider": {
+      "adjacency_jaccard": 1.0,
+      "cpp_edge_count": 2,
+      "cpp_edges": [
+        "X --> Z",
+        "Y --> Z"
+      ],
+      "disagreements": [],
+      "ground_truth": {
+        "cpp": {
+          "arrowhead_precision": 1.0,
+          "arrowheads_emitted": 2,
+          "skeleton_f1": 1.0,
+          "skeleton_precision": 1.0,
+          "skeleton_recall": 1.0,
+          "skeleton_shd": 0
+        },
+        "java": {
+          "arrowhead_precision": 1.0,
+          "arrowheads_emitted": 2,
+          "skeleton_f1": 1.0,
+          "skeleton_precision": 1.0,
+          "skeleton_recall": 1.0,
+          "skeleton_shd": 0
+        },
+        "n_hidden": 0
+      },
+      "java_edge_count": 2,
+      "java_edges": [
+        "X --> Z",
+        "Y --> Z"
+      ],
+      "only_cpp": [],
+      "only_java": [],
+      "type_agreement": 1.0
+    },
+    "fges/latent": {
+      "adjacency_jaccard": 1.0,
+      "cpp_edge_count": 2,
+      "cpp_edges": [
+        "X --- Y",
+        "X --- Z"
+      ],
+      "disagreements": [],
+      "java_edge_count": 2,
+      "java_edges": [
+        "X --- Y",
+        "Z --- X"
+      ],
+      "only_cpp": [],
+      "only_java": [],
+      "type_agreement": 1.0
+    },
+    "fges/medium_dag": {
+      "adjacency_jaccard": 1.0,
+      "cpp_edge_count": 12,
+      "cpp_edges": [
+        "V0 --> V4",
+        "V1 --> V6",
+        "V1 --> V7",
+        "V2 --- V0",
+        "V2 --> V4",
+        "V2 --> V6",
+        "V2 --> V7",
+        "V3 --- V1",
+        "V3 --> V4",
+        "V3 --> V6",
+        "V3 --> V7",
+        "V5 --> V6"
+      ],
+      "disagreements": [],
+      "ground_truth": {
+        "cpp": {
+          "arrowhead_precision": 1.0,
+          "arrowheads_emitted": 10,
+          "skeleton_f1": 1.0,
+          "skeleton_precision": 1.0,
+          "skeleton_recall": 1.0,
+          "skeleton_shd": 0
+        },
+        "java": {
+          "arrowhead_precision": 1.0,
+          "arrowheads_emitted": 10,
+          "skeleton_f1": 1.0,
+          "skeleton_precision": 1.0,
+          "skeleton_recall": 1.0,
+          "skeleton_shd": 0
+        },
+        "n_hidden": 0
+      },
+      "java_edge_count": 12,
+      "java_edges": [
+        "V0 --> V4",
+        "V1 --- V3",
+        "V1 --> V6",
+        "V1 --> V7",
+        "V2 --- V0",
+        "V2 --> V4",
+        "V2 --> V6",
+        "V2 --> V7",
+        "V3 --> V4",
+        "V3 --> V6",
+        "V3 --> V7",
+        "V5 --> V6"
+      ],
+      "only_cpp": [],
+      "only_java": [],
+      "type_agreement": 1.0
+    },
+    "fges/medium_latents": {
+      "adjacency_jaccard": 1.0,
+      "cpp_edge_count": 11,
+      "cpp_edges": [
+        "V0 --- V2",
+        "V0 --> V4",
+        "V1 --> V4",
+        "V1 --> V5",
+        "V1 --> V7",
+        "V2 --- V3",
+        "V2 --> V4",
+        "V2 --> V6",
+        "V2 --> V7",
+        "V3 --> V5",
+        "V4 --> V6"
+      ],
+      "disagreements": [],
+      "ground_truth": {
+        "cpp": {
+          "skeleton_f1": 1.0,
+          "skeleton_precision": 1.0,
+          "skeleton_recall": 1.0,
+          "skeleton_shd": 0
+        },
+        "java": {
+          "skeleton_f1": 1.0,
+          "skeleton_precision": 1.0,
+          "skeleton_recall": 1.0,
+          "skeleton_shd": 0
+        },
+        "n_hidden": 2
+      },
+      "java_edge_count": 11,
+      "java_edges": [
+        "V0 --- V2",
+        "V0 --> V4",
+        "V1 --> V4",
+        "V1 --> V5",
+        "V1 --> V7",
+        "V2 --- V3",
+        "V2 --> V4",
+        "V2 --> V6",
+        "V2 --> V7",
+        "V3 --> V5",
+        "V4 --> V6"
+      ],
+      "only_cpp": [],
+      "only_java": [],
+      "type_agreement": 1.0
+    },
+    "gfci/boston": {
+      "adjacency_jaccard": 1.0,
+      "cpp_edge_count": 22,
+      "cpp_edges": [
+        "PANAS_NA --> worry_scale",
+        "PANAS_NA <-> PANAS_NA_lag",
+        "PANAS_NA_lag --> worry_scale_lag",
+        "PANAS_NA_lag <-> PHQ9_lag",
+        "PANAS_PA <-> PHQ9",
+        "PANAS_PA_lag --> PANAS_PA",
+        "PANAS_PA_lag --> PHQ9_lag",
+        "PHQ9 --> PANAS_NA",
+        "PHQ9 <-> PANAS_NA_lag",
+        "PHQ9_lag --> PHQ9",
+        "TIB --> PANAS_NA",
+        "TIB --> TST",
+        "TIB_lag o-> TIB",
+        "TIB_lag o-> TST_lag",
+        "TST_lag --> TST",
+        "alcohol_bev_lag --> alcohol_bev",
+        "worry_scale --> PANAS_PA",
+        "worry_scale --> TST",
+        "worry_scale_lag --> PANAS_PA_lag",
+        "worry_scale_lag --> TST_lag",
+        "worry_scale_lag --> alcohol_bev_lag",
+        "worry_scale_lag --> worry_scale"
+      ],
+      "disagreements": [
+        {
+          "class": "<-> (java) vs --> (cpp)",
+          "cpp": "TIB --> TST",
+          "java": "TIB <-> TST"
+        }
+      ],
+      "java_edge_count": 22,
+      "java_edges": [
+        "PANAS_NA --> worry_scale",
+        "PANAS_NA <-> PANAS_NA_lag",
+        "PANAS_NA_lag --> worry_scale_lag",
+        "PANAS_PA <-> PHQ9",
+        "PANAS_PA_lag --> PANAS_PA",
+        "PANAS_PA_lag --> PHQ9_lag",
+        "PHQ9 --> PANAS_NA",
+        "PHQ9 <-> PANAS_NA_lag",
+        "PHQ9_lag --> PHQ9",
+        "PHQ9_lag <-> PANAS_NA_lag",
+        "TIB --> PANAS_NA",
+        "TIB <-> TST",
+        "TIB_lag o-> TIB",
+        "TIB_lag o-> TST_lag",
+        "TST_lag --> TST",
+        "alcohol_bev_lag --> alcohol_bev",
+        "worry_scale --> PANAS_PA",
+        "worry_scale --> TST",
+        "worry_scale_lag --> PANAS_PA_lag",
+        "worry_scale_lag --> TST_lag",
+        "worry_scale_lag --> alcohol_bev_lag",
+        "worry_scale_lag --> worry_scale"
+      ],
+      "only_cpp": [],
+      "only_java": [],
+      "type_agreement": 0.9545
+    },
+    "gfci/chain": {
+      "adjacency_jaccard": 1.0,
+      "cpp_edge_count": 2,
+      "cpp_edges": [
+        "X o-o Y",
+        "Y o-o Z"
+      ],
+      "disagreements": [],
+      "ground_truth": {
+        "cpp": {
+          "arrowhead_precision": null,
+          "arrowheads_emitted": 0,
+          "skeleton_f1": 1.0,
+          "skeleton_precision": 1.0,
+          "skeleton_recall": 1.0,
+          "skeleton_shd": 0
+        },
+        "java": {
+          "arrowhead_precision": null,
+          "arrowheads_emitted": 0,
+          "skeleton_f1": 1.0,
+          "skeleton_precision": 1.0,
+          "skeleton_recall": 1.0,
+          "skeleton_shd": 0
+        },
+        "n_hidden": 0
+      },
+      "java_edge_count": 2,
+      "java_edges": [
+        "Y o-o X",
+        "Y o-o Z"
+      ],
+      "only_cpp": [],
+      "only_java": [],
+      "type_agreement": 1.0
+    },
+    "gfci/collider": {
+      "adjacency_jaccard": 1.0,
+      "cpp_edge_count": 2,
+      "cpp_edges": [
+        "X o-> Z",
+        "Y o-> Z"
+      ],
+      "disagreements": [],
+      "ground_truth": {
+        "cpp": {
+          "arrowhead_precision": 1.0,
+          "arrowheads_emitted": 2,
+          "skeleton_f1": 1.0,
+          "skeleton_precision": 1.0,
+          "skeleton_recall": 1.0,
+          "skeleton_shd": 0
+        },
+        "java": {
+          "arrowhead_precision": 1.0,
+          "arrowheads_emitted": 2,
+          "skeleton_f1": 1.0,
+          "skeleton_precision": 1.0,
+          "skeleton_recall": 1.0,
+          "skeleton_shd": 0
+        },
+        "n_hidden": 0
+      },
+      "java_edge_count": 2,
+      "java_edges": [
+        "X o-> Z",
+        "Y o-> Z"
+      ],
+      "only_cpp": [],
+      "only_java": [],
+      "type_agreement": 1.0
+    },
+    "gfci/latent": {
+      "adjacency_jaccard": 1.0,
+      "cpp_edge_count": 2,
+      "cpp_edges": [
+        "X o-o Y",
+        "X o-o Z"
+      ],
+      "disagreements": [],
+      "java_edge_count": 2,
+      "java_edges": [
+        "X o-o Y",
+        "Z o-o X"
+      ],
+      "only_cpp": [],
+      "only_java": [],
+      "type_agreement": 1.0
+    },
+    "gfci/medium_dag": {
+      "adjacency_jaccard": 1.0,
+      "cpp_edge_count": 10,
+      "cpp_edges": [
+        "V0 o-> V4",
+        "V1 --> V6",
+        "V1 <-> V7",
+        "V2 o-> V4",
+        "V2 o-> V6",
+        "V2 o-> V7",
+        "V3 --> V6",
+        "V3 o-> V1",
+        "V3 o-> V4",
+        "V5 o-> V6"
+      ],
+      "disagreements": [],
+      "ground_truth": {
+        "cpp": {
+          "arrowhead_precision": 0.8182,
+          "arrowheads_emitted": 11,
+          "skeleton_f1": 0.9091,
+          "skeleton_precision": 1.0,
+          "skeleton_recall": 0.8333,
+          "skeleton_shd": 2
+        },
+        "java": {
+          "arrowhead_precision": 0.8182,
+          "arrowheads_emitted": 11,
+          "skeleton_f1": 0.9091,
+          "skeleton_precision": 1.0,
+          "skeleton_recall": 0.8333,
+          "skeleton_shd": 2
+        },
+        "n_hidden": 0
+      },
+      "java_edge_count": 10,
+      "java_edges": [
+        "V0 o-> V4",
+        "V1 --> V6",
+        "V1 <-> V7",
+        "V2 o-> V4",
+        "V2 o-> V6",
+        "V2 o-> V7",
+        "V3 --> V6",
+        "V3 o-> V1",
+        "V3 o-> V4",
+        "V5 o-> V6"
+      ],
+      "only_cpp": [],
+      "only_java": [],
+      "type_agreement": 1.0
+    },
+    "gfci/medium_latents": {
+      "adjacency_jaccard": 1.0,
+      "cpp_edge_count": 10,
+      "cpp_edges": [
+        "V0 o-> V4",
+        "V0 o-o V2",
+        "V1 o-> V4",
+        "V1 o-> V5",
+        "V1 o-> V7",
+        "V2 o-> V4",
+        "V2 o-> V7",
+        "V2 o-o V3",
+        "V3 o-> V5",
+        "V6 o-> V4"
+      ],
+      "disagreements": [],
+      "ground_truth": {
+        "cpp": {
+          "skeleton_f1": 0.9524,
+          "skeleton_precision": 1.0,
+          "skeleton_recall": 0.9091,
+          "skeleton_shd": 1
+        },
+        "java": {
+          "skeleton_f1": 0.9524,
+          "skeleton_precision": 1.0,
+          "skeleton_recall": 0.9091,
+          "skeleton_shd": 1
+        },
+        "n_hidden": 2
+      },
+      "java_edge_count": 10,
+      "java_edges": [
+        "V0 o-> V4",
+        "V0 o-o V2",
+        "V1 o-> V4",
+        "V1 o-> V5",
+        "V1 o-> V7",
+        "V2 o-> V4",
+        "V2 o-> V7",
+        "V2 o-o V3",
+        "V3 o-> V5",
+        "V6 o-> V4"
+      ],
+      "only_cpp": [],
+      "only_java": [],
+      "type_agreement": 1.0
+    },
+    "grasp/boston": {
+      "adjacency_jaccard": 0.8621,
+      "cpp_edge_count": 27,
+      "cpp_edges": [
+        "PANAS_NA --> PANAS_PA",
+        "PANAS_NA --> PHQ9",
+        "PANAS_NA --> worry_scale",
+        "PANAS_NA_lag --> PANAS_NA",
+        "PANAS_NA_lag --> PANAS_PA",
+        "PANAS_PA --> PHQ9",
+        "PANAS_PA_lag --- PHQ9_lag",
+        "PANAS_PA_lag --> PANAS_PA",
+        "PANAS_PA_lag --> PHQ9",
+        "PHQ9_lag --> PANAS_NA",
+        "PHQ9_lag --> PANAS_NA_lag",
+        "PHQ9_lag --> PHQ9",
+        "TIB --> TST",
+        "TIB_lag --> PANAS_NA_lag",
+        "TIB_lag --> TIB",
+        "TIB_lag --> TST",
+        "TIB_lag --> TST_lag",
+        "TST_lag --> PANAS_NA_lag",
+        "TST_lag --> TST",
+        "alcohol_bev_lag --- worry_scale_lag",
+        "alcohol_bev_lag --> alcohol_bev",
+        "worry_scale_lag --- PANAS_PA_lag",
+        "worry_scale_lag --- PHQ9_lag",
+        "worry_scale_lag --> PANAS_NA_lag",
+        "worry_scale_lag --> TST",
+        "worry_scale_lag --> TST_lag",
+        "worry_scale_lag --> worry_scale"
+      ],
+      "disagreements": [
+        {
+          "class": "--> (java) vs --- (cpp)",
+          "cpp": "PANAS_PA_lag --- PHQ9_lag",
+          "java": "PHQ9_lag --> PANAS_PA_lag"
+        },
+        {
+          "class": "direction reversal",
+          "cpp": "PHQ9_lag --> PANAS_NA_lag",
+          "java": "PANAS_NA_lag --> PHQ9_lag"
+        },
+        {
+          "class": "--> (java) vs --- (cpp)",
+          "cpp": "worry_scale_lag --- PANAS_PA_lag",
+          "java": "worry_scale_lag --> PANAS_PA_lag"
+        }
+      ],
+      "java_edge_count": 27,
+      "java_edges": [
+        "PANAS_NA --> PANAS_PA",
+        "PANAS_NA --> PHQ9",
+        "PANAS_NA --> worry_scale",
+        "PANAS_NA_lag --> PANAS_NA",
+        "PANAS_NA_lag --> PANAS_PA",
+        "PANAS_NA_lag --> PHQ9_lag",
+        "PANAS_PA --> PHQ9",
+        "PANAS_PA_lag --> PANAS_PA",
+        "PANAS_PA_lag --> PHQ9",
+        "PHQ9_lag --> PANAS_NA",
+        "PHQ9_lag --> PANAS_PA_lag",
+        "PHQ9_lag --> PHQ9",
+        "TIB --> TST",
+        "TIB_lag --> PANAS_NA_lag",
+        "TIB_lag --> PHQ9_lag",
+        "TIB_lag --> TIB",
+        "TIB_lag --> TST",
+        "TIB_lag --> TST_lag",
+        "TST_lag --> PHQ9_lag",
+        "TST_lag --> TST",
+        "alcohol_bev_lag --> alcohol_bev",
+        "worry_scale_lag --- alcohol_bev_lag",
+        "worry_scale_lag --> PANAS_NA_lag",
+        "worry_scale_lag --> PANAS_PA_lag",
+        "worry_scale_lag --> TST",
+        "worry_scale_lag --> TST_lag",
+        "worry_scale_lag --> worry_scale"
+      ],
+      "only_cpp": [
+        [
+          "PANAS_NA_lag",
+          "TST_lag"
+        ],
+        [
+          "PHQ9_lag",
+          "worry_scale_lag"
+        ]
+      ],
+      "only_java": [
+        [
+          "PHQ9_lag",
+          "TIB_lag"
+        ],
+        [
+          "PHQ9_lag",
+          "TST_lag"
+        ]
+      ],
+      "type_agreement": 0.88
+    },
+    "grasp/chain": {
+      "adjacency_jaccard": 1.0,
+      "cpp_edge_count": 2,
+      "cpp_edges": [
+        "X --- Y",
+        "Y --- Z"
+      ],
+      "disagreements": [],
+      "ground_truth": {
+        "cpp": {
+          "arrowhead_precision": null,
+          "arrowheads_emitted": 0,
+          "skeleton_f1": 1.0,
+          "skeleton_precision": 1.0,
+          "skeleton_recall": 1.0,
+          "skeleton_shd": 0
+        },
+        "java": {
+          "arrowhead_precision": null,
+          "arrowheads_emitted": 0,
+          "skeleton_f1": 1.0,
+          "skeleton_precision": 1.0,
+          "skeleton_recall": 1.0,
+          "skeleton_shd": 0
+        },
+        "n_hidden": 0
+      },
+      "java_edge_count": 2,
+      "java_edges": [
+        "X --- Y",
+        "Y --- Z"
+      ],
+      "only_cpp": [],
+      "only_java": [],
+      "type_agreement": 1.0
+    },
+    "grasp/collider": {
+      "adjacency_jaccard": 1.0,
+      "cpp_edge_count": 2,
+      "cpp_edges": [
+        "X --> Z",
+        "Y --> Z"
+      ],
+      "disagreements": [],
+      "ground_truth": {
+        "cpp": {
+          "arrowhead_precision": 1.0,
+          "arrowheads_emitted": 2,
+          "skeleton_f1": 1.0,
+          "skeleton_precision": 1.0,
+          "skeleton_recall": 1.0,
+          "skeleton_shd": 0
+        },
+        "java": {
+          "arrowhead_precision": 1.0,
+          "arrowheads_emitted": 2,
+          "skeleton_f1": 1.0,
+          "skeleton_precision": 1.0,
+          "skeleton_recall": 1.0,
+          "skeleton_shd": 0
+        },
+        "n_hidden": 0
+      },
+      "java_edge_count": 2,
+      "java_edges": [
+        "X --> Z",
+        "Y --> Z"
+      ],
+      "only_cpp": [],
+      "only_java": [],
+      "type_agreement": 1.0
+    },
+    "grasp/latent": {
+      "adjacency_jaccard": 1.0,
+      "cpp_edge_count": 2,
+      "cpp_edges": [
+        "X --- Y",
+        "X --- Z"
+      ],
+      "disagreements": [],
+      "java_edge_count": 2,
+      "java_edges": [
+        "X --- Y",
+        "X --- Z"
+      ],
+      "only_cpp": [],
+      "only_java": [],
+      "type_agreement": 1.0
+    },
+    "grasp/medium_dag": {
+      "adjacency_jaccard": 1.0,
+      "cpp_edge_count": 12,
+      "cpp_edges": [
+        "V0 --- V2",
+        "V0 --> V4",
+        "V1 --- V3",
+        "V1 --> V6",
+        "V1 --> V7",
+        "V2 --> V4",
+        "V2 --> V6",
+        "V2 --> V7",
+        "V3 --> V4",
+        "V3 --> V6",
+        "V3 --> V7",
+        "V5 --> V6"
+      ],
+      "disagreements": [],
+      "ground_truth": {
+        "cpp": {
+          "arrowhead_precision": 1.0,
+          "arrowheads_emitted": 10,
+          "skeleton_f1": 1.0,
+          "skeleton_precision": 1.0,
+          "skeleton_recall": 1.0,
+          "skeleton_shd": 0
+        },
+        "java": {
+          "arrowhead_precision": 1.0,
+          "arrowheads_emitted": 10,
+          "skeleton_f1": 1.0,
+          "skeleton_precision": 1.0,
+          "skeleton_recall": 1.0,
+          "skeleton_shd": 0
+        },
+        "n_hidden": 0
+      },
+      "java_edge_count": 12,
+      "java_edges": [
+        "V0 --> V4",
+        "V1 --- V3",
+        "V1 --> V6",
+        "V1 --> V7",
+        "V2 --- V0",
+        "V2 --> V4",
+        "V2 --> V6",
+        "V2 --> V7",
+        "V3 --> V4",
+        "V3 --> V6",
+        "V3 --> V7",
+        "V5 --> V6"
+      ],
+      "only_cpp": [],
+      "only_java": [],
+      "type_agreement": 1.0
+    },
+    "grasp/medium_latents": {
+      "adjacency_jaccard": 1.0,
+      "cpp_edge_count": 11,
+      "cpp_edges": [
+        "V0 --- V2",
+        "V0 --> V4",
+        "V1 --> V4",
+        "V1 --> V5",
+        "V1 --> V7",
+        "V2 --- V3",
+        "V2 --> V4",
+        "V2 --> V6",
+        "V2 --> V7",
+        "V3 --> V5",
+        "V4 --> V6"
+      ],
+      "disagreements": [],
+      "ground_truth": {
+        "cpp": {
+          "skeleton_f1": 1.0,
+          "skeleton_precision": 1.0,
+          "skeleton_recall": 1.0,
+          "skeleton_shd": 0
+        },
+        "java": {
+          "skeleton_f1": 1.0,
+          "skeleton_precision": 1.0,
+          "skeleton_recall": 1.0,
+          "skeleton_shd": 0
+        },
+        "n_hidden": 2
+      },
+      "java_edge_count": 11,
+      "java_edges": [
+        "V0 --> V4",
+        "V1 --> V4",
+        "V1 --> V5",
+        "V1 --> V7",
+        "V2 --- V0",
+        "V2 --> V4",
+        "V2 --> V6",
+        "V2 --> V7",
+        "V3 --- V2",
+        "V3 --> V5",
+        "V4 --> V6"
+      ],
+      "only_cpp": [],
+      "only_java": [],
+      "type_agreement": 1.0
+    },
+    "grasp_fci/boston": {
+      "adjacency_jaccard": 0.8095,
+      "cpp_edge_count": 17,
+      "cpp_edges": [
+        "PANAS_NA --> PHQ9",
+        "PANAS_NA --> worry_scale",
+        "PANAS_NA <-> PANAS_NA_lag",
+        "PANAS_PA --> PHQ9",
+        "PANAS_PA_lag --> PANAS_PA",
+        "PANAS_PA_lag <-> PHQ9_lag",
+        "PHQ9 <-> PHQ9_lag",
+        "PHQ9_lag --> PANAS_NA_lag",
+        "TIB --> TST",
+        "TIB_lag o-> TIB",
+        "TIB_lag o-o TST_lag",
+        "TST_lag --> TST",
+        "alcohol_bev_lag o-> alcohol_bev",
+        "alcohol_bev_lag o-o worry_scale_lag",
+        "worry_scale_lag o-> PANAS_NA_lag",
+        "worry_scale_lag o-> PANAS_PA_lag",
+        "worry_scale_lag o-> worry_scale"
+      ],
+      "disagreements": [
+        {
+          "class": "o-> (java) vs <-> (cpp)",
+          "cpp": "PANAS_PA_lag <-> PHQ9_lag",
+          "java": "PANAS_PA_lag o-> PHQ9_lag"
+        },
+        {
+          "class": "o-> (java) vs --> (cpp)",
+          "cpp": "PANAS_PA_lag --> PANAS_PA",
+          "java": "PANAS_PA_lag o-> PANAS_PA"
+        },
+        {
+          "class": "<-> (java) vs --> (cpp)",
+          "cpp": "PANAS_PA --> PHQ9",
+          "java": "PANAS_PA <-> PHQ9"
+        },
+        {
+          "class": "--> (java) vs o-> (cpp)",
+          "cpp": "alcohol_bev_lag o-> alcohol_bev",
+          "java": "alcohol_bev_lag --> alcohol_bev"
+        },
+        {
+          "class": "<-> (java) vs o-> (cpp)",
+          "cpp": "worry_scale_lag o-> worry_scale",
+          "java": "worry_scale <-> worry_scale_lag"
+        },
+        {
+          "class": "o-> (java) vs o-o (cpp)",
+          "cpp": "TIB_lag o-o TST_lag",
+          "java": "TIB_lag o-> TST_lag"
+        },
+        {
+          "class": "direction reversal",
+          "cpp": "worry_scale_lag o-> PANAS_PA_lag",
+          "java": "PANAS_PA_lag o-> worry_scale_lag"
+        },
+        {
+          "class": "<-> (java) vs --> (cpp)",
+          "cpp": "TST_lag --> TST",
+          "java": "TST <-> TST_lag"
+        },
+        {
+          "class": "--> (java) vs o-o (cpp)",
+          "cpp": "alcohol_bev_lag o-o worry_scale_lag",
+          "java": "worry_scale_lag --> alcohol_bev_lag"
+        },
+        {
+          "class": "--> (java) vs o-> (cpp)",
+          "cpp": "worry_scale_lag o-> PANAS_NA_lag",
+          "java": "worry_scale_lag --> PANAS_NA_lag"
+        }
+      ],
+      "java_edge_count": 21,
+      "java_edges": [
+        "PANAS_NA --> PHQ9",
+        "PANAS_NA --> worry_scale",
+        "PANAS_NA <-> PANAS_NA_lag",
+        "PANAS_PA <-> PHQ9",
+        "PANAS_PA_lag o-> PANAS_PA",
+        "PANAS_PA_lag o-> PHQ9_lag",
+        "PANAS_PA_lag o-> worry_scale_lag",
+        "PHQ9 <-> PHQ9_lag",
+        "PHQ9_lag --> PANAS_NA_lag",
+        "TIB --> TST",
+        "TIB_lag o-> PANAS_NA_lag",
+        "TIB_lag o-> TIB",
+        "TIB_lag o-> TST_lag",
+        "TST <-> TST_lag",
+        "alcohol_bev_lag --> alcohol_bev",
+        "worry_scale --> PANAS_PA",
+        "worry_scale --> TST",
+        "worry_scale <-> worry_scale_lag",
+        "worry_scale_lag --> PANAS_NA_lag",
+        "worry_scale_lag --> TST_lag",
+        "worry_scale_lag --> alcohol_bev_lag"
+      ],
+      "only_cpp": [],
+      "only_java": [
+        [
+          "PANAS_NA_lag",
+          "TIB_lag"
+        ],
+        [
+          "PANAS_PA",
+          "worry_scale"
+        ],
+        [
+          "TST",
+          "worry_scale"
+        ],
+        [
+          "TST_lag",
+          "worry_scale_lag"
+        ]
+      ],
+      "type_agreement": 0.4118
+    },
+    "grasp_fci/chain": {
+      "adjacency_jaccard": 1.0,
+      "cpp_edge_count": 2,
+      "cpp_edges": [
+        "X o-o Y",
+        "Y o-o Z"
+      ],
+      "disagreements": [],
+      "ground_truth": {
+        "cpp": {
+          "arrowhead_precision": null,
+          "arrowheads_emitted": 0,
+          "skeleton_f1": 1.0,
+          "skeleton_precision": 1.0,
+          "skeleton_recall": 1.0,
+          "skeleton_shd": 0
+        },
+        "java": {
+          "arrowhead_precision": null,
+          "arrowheads_emitted": 0,
+          "skeleton_f1": 1.0,
+          "skeleton_precision": 1.0,
+          "skeleton_recall": 1.0,
+          "skeleton_shd": 0
+        },
+        "n_hidden": 0
+      },
+      "java_edge_count": 2,
+      "java_edges": [
+        "X o-o Y",
+        "Y o-o Z"
+      ],
+      "only_cpp": [],
+      "only_java": [],
+      "type_agreement": 1.0
+    },
+    "grasp_fci/collider": {
+      "adjacency_jaccard": 1.0,
+      "cpp_edge_count": 2,
+      "cpp_edges": [
+        "X o-> Z",
+        "Y o-> Z"
+      ],
+      "disagreements": [],
+      "ground_truth": {
+        "cpp": {
+          "arrowhead_precision": 1.0,
+          "arrowheads_emitted": 2,
+          "skeleton_f1": 1.0,
+          "skeleton_precision": 1.0,
+          "skeleton_recall": 1.0,
+          "skeleton_shd": 0
+        },
+        "java": {
+          "arrowhead_precision": 1.0,
+          "arrowheads_emitted": 2,
+          "skeleton_f1": 1.0,
+          "skeleton_precision": 1.0,
+          "skeleton_recall": 1.0,
+          "skeleton_shd": 0
+        },
+        "n_hidden": 0
+      },
+      "java_edge_count": 2,
+      "java_edges": [
+        "X o-> Z",
+        "Y o-> Z"
+      ],
+      "only_cpp": [],
+      "only_java": [],
+      "type_agreement": 1.0
+    },
+    "grasp_fci/latent": {
+      "adjacency_jaccard": 1.0,
+      "cpp_edge_count": 2,
+      "cpp_edges": [
+        "X o-o Y",
+        "X o-o Z"
+      ],
+      "disagreements": [],
+      "java_edge_count": 2,
+      "java_edges": [
+        "X o-o Y",
+        "X o-o Z"
+      ],
+      "only_cpp": [],
+      "only_java": [],
+      "type_agreement": 1.0
+    },
+    "grasp_fci/medium_dag": {
+      "adjacency_jaccard": 1.0,
+      "cpp_edge_count": 10,
+      "cpp_edges": [
+        "V0 o-> V4",
+        "V1 --> V6",
+        "V1 <-> V7",
+        "V2 o-> V4",
+        "V2 o-> V6",
+        "V2 o-> V7",
+        "V3 --> V6",
+        "V3 o-> V1",
+        "V3 o-> V4",
+        "V5 o-> V6"
+      ],
+      "disagreements": [],
+      "ground_truth": {
+        "cpp": {
+          "arrowhead_precision": 0.8182,
+          "arrowheads_emitted": 11,
+          "skeleton_f1": 0.9091,
+          "skeleton_precision": 1.0,
+          "skeleton_recall": 0.8333,
+          "skeleton_shd": 2
+        },
+        "java": {
+          "arrowhead_precision": 0.8182,
+          "arrowheads_emitted": 11,
+          "skeleton_f1": 0.9091,
+          "skeleton_precision": 1.0,
+          "skeleton_recall": 0.8333,
+          "skeleton_shd": 2
+        },
+        "n_hidden": 0
+      },
+      "java_edge_count": 10,
+      "java_edges": [
+        "V0 o-> V4",
+        "V1 --> V6",
+        "V1 <-> V7",
+        "V2 o-> V4",
+        "V2 o-> V6",
+        "V2 o-> V7",
+        "V3 --> V6",
+        "V3 o-> V1",
+        "V3 o-> V4",
+        "V5 o-> V6"
+      ],
+      "only_cpp": [],
+      "only_java": [],
+      "type_agreement": 1.0
+    },
+    "grasp_fci/medium_latents": {
+      "adjacency_jaccard": 1.0,
+      "cpp_edge_count": 10,
+      "cpp_edges": [
+        "V0 o-> V4",
+        "V0 o-o V2",
+        "V1 o-> V4",
+        "V1 o-> V5",
+        "V1 o-> V7",
+        "V2 o-> V4",
+        "V2 o-> V7",
+        "V2 o-o V3",
+        "V3 o-> V5",
+        "V6 o-> V4"
+      ],
+      "disagreements": [],
+      "ground_truth": {
+        "cpp": {
+          "skeleton_f1": 0.9524,
+          "skeleton_precision": 1.0,
+          "skeleton_recall": 0.9091,
+          "skeleton_shd": 1
+        },
+        "java": {
+          "skeleton_f1": 0.9524,
+          "skeleton_precision": 1.0,
+          "skeleton_recall": 0.9091,
+          "skeleton_shd": 1
+        },
+        "n_hidden": 2
+      },
+      "java_edge_count": 10,
+      "java_edges": [
+        "V0 o-> V4",
+        "V1 o-> V4",
+        "V1 o-> V5",
+        "V1 o-> V7",
+        "V2 o-> V4",
+        "V2 o-> V7",
+        "V2 o-o V0",
+        "V3 o-> V5",
+        "V3 o-o V2",
+        "V6 o-> V4"
+      ],
+      "only_cpp": [],
+      "only_java": [],
+      "type_agreement": 1.0
+    },
+    "pc/boston": {
+      "adjacency_jaccard": 0.9444,
+      "cpp_edge_count": 17,
+      "cpp_edges": [
+        "PANAS_NA_lag --- PHQ9_lag",
+        "PANAS_NA_lag --> PANAS_NA",
+        "PANAS_NA_lag --> PHQ9",
+        "PANAS_NA_lag --> worry_scale_lag",
+        "PANAS_PA --> PHQ9",
+        "PANAS_PA_lag --> PANAS_PA",
+        "PANAS_PA_lag --> worry_scale_lag",
+        "PHQ9 --> PANAS_NA",
+        "PHQ9_lag --- PANAS_PA_lag",
+        "PHQ9_lag --> PHQ9",
+        "TIB_lag --- TST_lag",
+        "TIB_lag --> TIB",
+        "TST --> TIB",
+        "TST_lag --> TST",
+        "alcohol_bev_lag --> alcohol_bev",
+        "alcohol_bev_lag --> worry_scale_lag",
+        "worry_scale_lag --> worry_scale"
+      ],
+      "disagreements": [
+        {
+          "class": "direction reversal",
+          "cpp": "TST --> TIB",
+          "java": "TIB --> TST"
+        }
+      ],
+      "java_edge_count": 18,
+      "java_edges": [
+        "PANAS_NA --> worry_scale",
+        "PANAS_NA_lag --- PHQ9_lag",
+        "PANAS_NA_lag --> PANAS_NA",
+        "PANAS_NA_lag --> PHQ9",
+        "PANAS_NA_lag --> worry_scale_lag",
+        "PANAS_PA --> PHQ9",
+        "PANAS_PA_lag --> PANAS_PA",
+        "PANAS_PA_lag --> worry_scale_lag",
+        "PHQ9 --> PANAS_NA",
+        "PHQ9_lag --- PANAS_PA_lag",
+        "PHQ9_lag --> PHQ9",
+        "TIB --> TST",
+        "TIB_lag --- TST_lag",
+        "TIB_lag --> TIB",
+        "TST_lag --> TST",
+        "alcohol_bev_lag --> alcohol_bev",
+        "alcohol_bev_lag --> worry_scale_lag",
+        "worry_scale_lag --> worry_scale"
+      ],
+      "only_cpp": [],
+      "only_java": [
+        [
+          "PANAS_NA",
+          "worry_scale"
+        ]
+      ],
+      "type_agreement": 0.9412
+    },
+    "pc/chain": {
+      "adjacency_jaccard": 1.0,
+      "cpp_edge_count": 2,
+      "cpp_edges": [
+        "X --- Y",
+        "Y --- Z"
+      ],
+      "disagreements": [],
+      "ground_truth": {
+        "cpp": {
+          "arrowhead_precision": null,
+          "arrowheads_emitted": 0,
+          "skeleton_f1": 1.0,
+          "skeleton_precision": 1.0,
+          "skeleton_recall": 1.0,
+          "skeleton_shd": 0
+        },
+        "java": {
+          "arrowhead_precision": null,
+          "arrowheads_emitted": 0,
+          "skeleton_f1": 1.0,
+          "skeleton_precision": 1.0,
+          "skeleton_recall": 1.0,
+          "skeleton_shd": 0
+        },
+        "n_hidden": 0
+      },
+      "java_edge_count": 2,
+      "java_edges": [
+        "X --- Y",
+        "Y --- Z"
+      ],
+      "only_cpp": [],
+      "only_java": [],
+      "type_agreement": 1.0
+    },
+    "pc/collider": {
+      "adjacency_jaccard": 1.0,
+      "cpp_edge_count": 2,
+      "cpp_edges": [
+        "X --> Z",
+        "Y --> Z"
+      ],
+      "disagreements": [],
+      "ground_truth": {
+        "cpp": {
+          "arrowhead_precision": 1.0,
+          "arrowheads_emitted": 2,
+          "skeleton_f1": 1.0,
+          "skeleton_precision": 1.0,
+          "skeleton_recall": 1.0,
+          "skeleton_shd": 0
+        },
+        "java": {
+          "arrowhead_precision": 1.0,
+          "arrowheads_emitted": 2,
+          "skeleton_f1": 1.0,
+          "skeleton_precision": 1.0,
+          "skeleton_recall": 1.0,
+          "skeleton_shd": 0
+        },
+        "n_hidden": 0
+      },
+      "java_edge_count": 2,
+      "java_edges": [
+        "X --> Z",
+        "Y --> Z"
+      ],
+      "only_cpp": [],
+      "only_java": [],
+      "type_agreement": 1.0
+    },
+    "pc/latent": {
+      "adjacency_jaccard": 1.0,
+      "cpp_edge_count": 2,
+      "cpp_edges": [
+        "X --- Y",
+        "X --- Z"
+      ],
+      "disagreements": [],
+      "java_edge_count": 2,
+      "java_edges": [
+        "X --- Y",
+        "X --- Z"
+      ],
+      "only_cpp": [],
+      "only_java": [],
+      "type_agreement": 1.0
+    },
+    "pc/medium_dag": {
+      "adjacency_jaccard": 1.0,
+      "cpp_edge_count": 10,
+      "cpp_edges": [
+        "V0 --> V4",
+        "V1 --> V6",
+        "V1 --> V7",
+        "V2 --> V4",
+        "V2 --> V6",
+        "V2 --> V7",
+        "V3 --- V1",
+        "V3 --> V4",
+        "V3 --> V6",
+        "V5 --> V6"
+      ],
+      "disagreements": [],
+      "ground_truth": {
+        "cpp": {
+          "arrowhead_precision": 1.0,
+          "arrowheads_emitted": 9,
+          "skeleton_f1": 0.9091,
+          "skeleton_precision": 1.0,
+          "skeleton_recall": 0.8333,
+          "skeleton_shd": 2
+        },
+        "java": {
+          "arrowhead_precision": 1.0,
+          "arrowheads_emitted": 9,
+          "skeleton_f1": 0.9091,
+          "skeleton_precision": 1.0,
+          "skeleton_recall": 0.8333,
+          "skeleton_shd": 2
+        },
+        "n_hidden": 0
+      },
+      "java_edge_count": 10,
+      "java_edges": [
+        "V0 --> V4",
+        "V1 --> V6",
+        "V1 --> V7",
+        "V2 --> V4",
+        "V2 --> V6",
+        "V2 --> V7",
+        "V3 --- V1",
+        "V3 --> V4",
+        "V3 --> V6",
+        "V5 --> V6"
+      ],
+      "only_cpp": [],
+      "only_java": [],
+      "type_agreement": 1.0
+    },
+    "pc/medium_latents": {
+      "adjacency_jaccard": 1.0,
+      "cpp_edge_count": 11,
+      "cpp_edges": [
+        "V0 --- V2",
+        "V0 --> V6",
+        "V1 --> V4",
+        "V1 --> V5",
+        "V1 --> V6",
+        "V1 --> V7",
+        "V2 --- V3",
+        "V2 --> V4",
+        "V2 --> V7",
+        "V3 --> V5",
+        "V4 --> V6"
+      ],
+      "disagreements": [],
+      "ground_truth": {
+        "cpp": {
+          "skeleton_f1": 0.8182,
+          "skeleton_precision": 0.8182,
+          "skeleton_recall": 0.8182,
+          "skeleton_shd": 4
+        },
+        "java": {
+          "skeleton_f1": 0.8182,
+          "skeleton_precision": 0.8182,
+          "skeleton_recall": 0.8182,
+          "skeleton_shd": 4
+        },
+        "n_hidden": 2
+      },
+      "java_edge_count": 11,
+      "java_edges": [
+        "V0 --- V2",
+        "V0 --> V6",
+        "V1 --> V4",
+        "V1 --> V5",
+        "V1 --> V6",
+        "V1 --> V7",
+        "V2 --- V3",
+        "V2 --> V4",
+        "V2 --> V7",
+        "V3 --> V5",
+        "V4 --> V6"
+      ],
+      "only_cpp": [],
+      "only_java": [],
+      "type_agreement": 1.0
+    }
+  }
+}
