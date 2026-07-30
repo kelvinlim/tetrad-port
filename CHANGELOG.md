@@ -56,6 +56,45 @@ All notable changes to this project will be documented in this file.
   instrument the first divergent tuck decision on this dataset and compare it
   against Java at that point.
 
+- **`SemBicScore` did not compute Java's score.** It used the full Gaussian
+  log-likelihood and doubled it, giving `cpp = 2*java - n*(log(2*pi)+1)` per variable
+  (measured: `cpp = 2*java - 25427.3785`, holding to 8e-7 across eight permutations). That is
+  a positive affine transform, so it preserves every score comparison — which is why FGES,
+  BOSS and GFCI matched Java exactly despite it. Now matches Java's arithmetic term for term
+  (`SemBicScore.java:344-372`); the same permutation scores `-6787.150588` on both sides.
+
+  This matters for GRaSP specifically, because `graspDfs` branches on **exact floating-point
+  equality**: `sNew == sOld` recurses a level deeper, `sNew > sOld` accepts and returns.
+  Changing the scale moved near-ties across that knife-edge.
+
+  No effect on Java agreement (0 improved, 0 regressed across 42 cells). On the ground-truth
+  simulation sweep it shuffles four GRaSP cells by 0.02-0.07 in both directions, which is the
+  chaotic-branch behaviour described in `docs/fidelity/grasp_divergence.md`, not a systematic
+  change.
+
+- **Root cause of the GRaSP/Java divergence identified; see
+  `docs/fidelity/grasp_divergence.md`.** The two suspects carried in this changelog —
+  `GrowShrinkTree` tie-breaking and `TeyssierScorer::getGraph` insertion order — are **ruled
+  out**: scoring eight independent permutations on both sides gives identical scores *and*
+  identical edge counts on every one, so for a given permutation the two implementations
+  agree completely. The divergence is in which permutation the search reaches.
+
+  With the score aligned, both searches now take identical tucks with identical improvements
+  for the first two steps, then C++ accepts a tuck Java does not — with an improvement of
+  **9.09495e-13**. The running score is ~6787, whose ULP is ~9.09e-13, so that is exactly one
+  unit in the last place. Java sees an exact tie there and recurses instead.
+
+  The residual is therefore floating-point non-associativity (summation order, and Eigen
+  versus Apache Commons Math in the residual variance) amplified by an exact-equality branch.
+  Matching it would need bit-identical linear algebra, which Eigen will not give. C++ GRaSP
+  ends on a permutation its own scorer rates 1.129 *worse* than Java's.
+
+  Practical consequence: treat movement in `grasp` and `grasp_fci` cells as noise unless it
+  is large or has a traced cause.
+
+- **`Grasp::graspDfs` now logs each accepted tuck under `setVerbose(true)`**, matching Java's
+  format (`Grasp.java:505-508`) so the two traces can be diffed directly.
+
 - **PC over-oriented, and the cause was iteration order.** `EdgeListGraph.getAdjacentNodes`
   returns `new ArrayList<>(new HashSet<Node>(...))`, so Java enumerates collider triples in
   name-hash bucket order. `src/util/java_hash.h` has modelled that since v0.3.0 and was

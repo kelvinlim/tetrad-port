@@ -19,11 +19,25 @@ SemBicScore::SemBicScore(const DataSet& dataSet)
 double SemBicScore::localScore(int node, const std::vector<int>& parents) const {
     int k = static_cast<int>(parents.size());
 
+    // Match Java's arithmetic exactly (SemBicScore.java:344-372):
+    //     lik    = -(sampleSize / 2.0) * log(varRy)
+    //     _score = lik - c * (k / 2.0) * logN - structurePrior(k)
+    //
+    // This previously used the full Gaussian log-likelihood,
+    // -0.5*n*(log(2*pi*sigma^2) + 1), and doubled it — giving
+    // cpp = 2*java - n*(log(2*pi) + 1) per variable. That is a positive affine
+    // transform, so it preserves every score *comparison* and left FGES, BOSS
+    // and GFCI matching Java exactly. GRaSP is different: graspDfs branches on
+    // exact floating-point equality (`sNew == sOld` recurses a level deeper,
+    // `sNew > sOld` accepts and returns), so a change of scale and offset moves
+    // ties across that knife-edge and sends the search down a different branch.
+    // Verified on Boston: the two searches took identical tucks for four steps,
+    // then split at a tuck Java scored as +0.000000 and C++ as +7.3e-12.
     double lik = getLikelihood(node, parents);
     if (std::isnan(lik)) return std::numeric_limits<double>::quiet_NaN();
 
     double c = penaltyDiscount_;
-    double score = 2.0 * lik - c * k * logN_ - getStructurePrior(k);
+    double score = lik - c * (k / 2.0) * logN_ - getStructurePrior(k);
 
     if (std::isnan(score) || std::isinf(score)) {
         return std::numeric_limits<double>::quiet_NaN();
@@ -38,12 +52,17 @@ double SemBicScore::localScoreDiff(int x, int y, const std::vector<int>& z) cons
     return localScore(y, zx) - localScore(y, z);
 }
 
+// Java: lik = -(this.sampleSize / 2.0) * log(varey)  (SemBicScore.java:352).
+// Note this is NOT the full Gaussian log-likelihood — it drops the
+// -n/2*(log(2*pi) + 1) constant. The constant is irrelevant to any score
+// comparison, but reproducing Java's exact floating-point value matters because
+// GRaSP branches on `sNew == sOld`. See localScore above.
 double SemBicScore::getLikelihood(int i, const std::vector<int>& parents) const {
     double sigmaSquared = getResidualVariance(i, parents);
     if (sigmaSquared <= 0 || std::isnan(sigmaSquared)) {
         return std::numeric_limits<double>::quiet_NaN();
     }
-    return -0.5 * sampleSize_ * (std::log(2.0 * M_PI * sigmaSquared) + 1.0);
+    return -(sampleSize_ / 2.0) * std::log(sigmaSquared);
 }
 
 double SemBicScore::getResidualVariance(int i, const std::vector<int>& parents) const {

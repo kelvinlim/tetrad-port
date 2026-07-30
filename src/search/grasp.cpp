@@ -1,5 +1,6 @@
 #include "search/grasp.h"
 #include "util/java_hash.h"
+#include "util/log_stream.h"
 #include <algorithm>
 #include <limits>
 #include <numeric>
@@ -177,7 +178,17 @@ void Grasp::graspDfs(TeyssierScorer& scorer, double sOld, const std::vector<int>
 
             double sNew = scorer.score();
             if (sNew > sOld) {
-                // Found improvement — return immediately
+                // Found improvement — return immediately.
+                // Java logs here (Grasp.java:505-508); the format is matched so the
+                // two traces can be diffed directly to locate the first divergent
+                // decision. Note C++ scores are 2x Java's (BIC convention), so
+                // compare the tuck sequence and edge counts, not the raw deltas.
+                if (verbose_) {
+                    logStream() << "Edges: " << scorer.getNumEdges()
+                                << " \t|\t Score Improvement: " << (sNew - sOld)
+                                << " \t|\t Tuck: [" << x->getName() << ", " << y->getName()
+                                << "] depth " << currentDepth << "\n";
+                }
                 return;
             }
 

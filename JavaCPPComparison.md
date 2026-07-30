@@ -3,7 +3,7 @@
 Comparison of **Tetrad 7.6.3 (Java)** against the **C++ port** across all implemented algorithms
 and datasets.
 
-*Auto-generated on 2026-07-29 20:40:34 by `tests/generate_comparison_report.py`.*
+*Auto-generated on 2026-07-29 20:53:10 by `tests/generate_comparison_report.py`.*
 
 ## Metrics
 
@@ -127,11 +127,11 @@ worry_scale_lag --> worry_scale
 |------|-----|---------|
 | `PANAS_NA_lag --> PHQ9_lag` | `PHQ9_lag --> PANAS_NA_lag` | `-->` direction reversal |
 | `PHQ9_lag --> PANAS_PA_lag` | `PANAS_PA_lag --- PHQ9_lag` | `-->` (Java) vs `---` (C++) |
-| `worry_scale_lag --> PANAS_PA_lag` | `worry_scale_lag --- PANAS_PA_lag` | `-->` (Java) vs `---` (C++) |
+| `worry_scale_lag --> PANAS_PA_lag` | `PANAS_PA_lag --- worry_scale_lag` | `-->` (Java) vs `---` (C++) |
 
-Java finds extra adjacencies: `PHQ9_lag — TST_lag`, `PHQ9_lag — TIB_lag`.
+Java finds extra adjacencies: `PHQ9_lag — TIB_lag`, `PHQ9_lag — TST_lag`.
 
-C++ finds extra adjacencies: `PANAS_NA_lag — TST_lag`, `PHQ9_lag — worry_scale_lag`.
+C++ finds extra adjacencies: `PHQ9_lag — worry_scale_lag`, `PANAS_NA_lag — TST_lag`.
 
 <details>
 <summary>Full edge lists</summary>
@@ -176,6 +176,7 @@ PANAS_NA_lag --> PANAS_NA
 PANAS_NA_lag --> PANAS_PA
 PANAS_PA --> PHQ9
 PANAS_PA_lag --- PHQ9_lag
+PANAS_PA_lag --- worry_scale_lag
 PANAS_PA_lag --> PANAS_PA
 PANAS_PA_lag --> PHQ9
 PHQ9_lag --> PANAS_NA
@@ -188,10 +189,9 @@ TIB_lag --> TST
 TIB_lag --> TST_lag
 TST_lag --> PANAS_NA_lag
 TST_lag --> TST
-alcohol_bev_lag --- worry_scale_lag
 alcohol_bev_lag --> alcohol_bev
-worry_scale_lag --- PANAS_PA_lag
 worry_scale_lag --- PHQ9_lag
+worry_scale_lag --- alcohol_bev_lag
 worry_scale_lag --> PANAS_NA_lag
 worry_scale_lag --> TST
 worry_scale_lag --> TST_lag
@@ -320,10 +320,10 @@ worry_scale_lag --> worry_scale
 | `TIB_lag o-> TST_lag` | `TIB_lag o-o TST_lag` | `o->` (Java) vs `o-o` (C++) |
 | `TST <-> TST_lag` | `TST_lag --> TST` | `<->` (Java) vs `-->` (C++): bidirected to directed |
 | `alcohol_bev_lag --> alcohol_bev` | `alcohol_bev_lag o-> alcohol_bev` | `-->` (Java) vs `o->` (C++) |
-| `worry_scale_lag --> alcohol_bev_lag` | `alcohol_bev_lag o-o worry_scale_lag` | `-->` (Java) vs `o-o` (C++) |
+| `worry_scale_lag --> alcohol_bev_lag` | `worry_scale_lag o-o alcohol_bev_lag` | `-->` (Java) vs `o-o` (C++) |
 | `worry_scale <-> worry_scale_lag` | `worry_scale_lag o-> worry_scale` | `<->` (Java) vs `o->` (C++) |
 
-Java finds extra adjacencies: `PANAS_NA_lag — TIB_lag`, `TST_lag — worry_scale_lag`, `TST — worry_scale`, `PANAS_PA — worry_scale`.
+Java finds extra adjacencies: `PANAS_PA — worry_scale`, `TST_lag — worry_scale_lag`, `TST — worry_scale`, `PANAS_NA_lag — TIB_lag`.
 
 <details>
 <summary>Full edge lists</summary>
@@ -368,10 +368,10 @@ TIB_lag o-> TIB
 TIB_lag o-o TST_lag
 TST_lag --> TST
 alcohol_bev_lag o-> alcohol_bev
-alcohol_bev_lag o-o worry_scale_lag
 worry_scale_lag o-> PANAS_NA_lag
 worry_scale_lag o-> PANAS_PA_lag
 worry_scale_lag o-> worry_scale
+worry_scale_lag o-o alcohol_bev_lag
 ```
 </details>
 
