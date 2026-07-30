@@ -56,10 +56,11 @@ Graph StarFci::search() {
 void StarFci::gfciR0(Graph& pag, const Graph& referenceCpdag, SepsetsGreedy& sepsets) {
     pag.reorientAllWith(Endpoint::CIRCLE);
 
-    if (!knowledge_.isEmpty()) {
-        FciOrient tmp(sepsets);
+    // Java: GraphUtils.fciOrientbk (GraphUtils.java:1793) — unguarded variant,
+    // called unconditionally. See Gfci::gfciR0.
+    {
         auto nodes = pag.getNodes();
-        tmp.fciOrientbk(knowledge_, pag, nodes);
+        FciOrient::graphUtilsFciOrientbk(knowledge_, pag, nodes);
     }
 
     auto nodes = pag.getNodes();

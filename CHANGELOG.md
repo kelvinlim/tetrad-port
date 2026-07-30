@@ -81,6 +81,29 @@ All notable changes to this project will be documented in this file.
   current cell — its preconditions never fired on this data — but it was a live
   over-orientation path.
 
+- **`doDdpOrientation` set one of Java's two arrowheads.** Java's R4 collider branch guards
+  with `isArrowheadAllowed(a, b)` *and* `isArrowheadAllowed(c, b)`, then sets both
+  `setEndpoint(a, b, ARROW)` and `setEndpoint(c, b, ARROW)` (`FciOrient.java:867-877`); the
+  port checked and set only the `c` end, and discarded `a` in the signature. Its tail branch
+  also carried an extra `sepset.contains(b)` guard that Java's `else if
+  (doDiscriminatingPathTailRule)` does not have (`FciOrient.java:885`). Both corrected, and
+  Java's `isAdjacentTo(d, c)` precondition added.
+
+- **`gfciR0` called the wrong `fciOrientbk`.** 7.6.3 has two separate implementations:
+  `FciOrient.fciOrientbk` (`FciOrient.java:1020`), which guards every edge with
+  `isArrowheadAllowed`, and `GraphUtils.fciOrientbk` (`GraphUtils.java:1833`), which has no
+  such guard and forces the endpoint. `GraphUtils.gfciR0` calls the unguarded one, and calls
+  it unconditionally rather than gating on `knowledge.isEmpty()` (`GraphUtils.java:1793`).
+  `Gfci::gfciR0` and `StarFci::gfciR0` used the guarded variant behind an emptiness check.
+  Added `FciOrient::graphUtilsFciOrientbk` and switched both call sites.
+
+  **Neither fix moves any current cell**, and the ground-truth simulation sweep is likewise
+  neutral. On the Boston tier knowledge the removed guard never rejected anything — tiers
+  forbid `current -> lag`, while the guard tests the opposite direction — and the added R4
+  arrowhead lands where one already exists. They are recorded because they are confirmed
+  divergences from the JAR that will bite on knowledge sets this test suite does not cover
+  (explicit forbidden edges in both directions, or required edges).
+
 ### Changed
 
 - **Java-comparison thresholds tightened to measured values.** All 25 bounds in

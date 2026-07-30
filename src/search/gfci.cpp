@@ -74,11 +74,12 @@ Graph Gfci::getMarkovCpdag() {
 void Gfci::gfciR0(Graph& pag, const Graph& referenceCpdag, SepsetsGreedy& sepsets) {
     pag.reorientAllWith(Endpoint::CIRCLE);
 
-    // Apply background knowledge (fciOrientbk).
-    if (!knowledge_.isEmpty()) {
-        FciOrient tmp(sepsets);
+    // Apply background knowledge. Java calls GraphUtils.fciOrientbk here
+    // (GraphUtils.java:1793) — the unguarded variant, unconditionally — not
+    // FciOrient.fciOrientbk, which guards with isArrowheadAllowed.
+    {
         auto nodes = pag.getNodes();
-        tmp.fciOrientbk(knowledge_, pag, nodes);
+        FciOrient::graphUtilsFciOrientbk(knowledge_, pag, nodes);
     }
 
     auto nodes = pag.getNodes();

@@ -1,3 +1,4 @@
+#include <stdexcept>
 #include "search/fci_orient.h"
 #include "util/choice_generator.h"
 #include "util/java_hash.h"
@@ -442,8 +443,14 @@ void FciOrient::ddpOrient(const NodePtr& a, const NodePtr& b, const NodePtr& c, 
 // Orientation decision for discriminating path rule (7.6.3 version).
 // Gets sep(d, c) from sepsets and checks if b is in it.
 // Returns true for noncollider (tail rule applied), false for collider.
-bool FciOrient::doDdpOrientation(const NodePtr& d, const NodePtr& /*a*/, const NodePtr& b,
+bool FciOrient::doDdpOrientation(const NodePtr& d, const NodePtr& a, const NodePtr& b,
                                    const NodePtr& c, Graph& graph) {
+    // Java precondition (FciOrient.java:850-852): d and c are non-adjacent by
+    // construction in ddpOrient; Java throws IllegalArgumentException otherwise.
+    if (graph.isAdjacentTo(d, c)) {
+        throw std::invalid_argument("doDdpOrientation: d and c must be non-adjacent");
+    }
+
     const std::set<NodePtr>* sepset = sepsets_.getSepset(d, c);
 
     if (sepset == nullptr) {
@@ -453,14 +460,20 @@ bool FciOrient::doDdpOrientation(const NodePtr& d, const NodePtr& /*a*/, const N
     bool bInSepset = (sepset->find(b) != sepset->end());
 
     if (!bInSepset && doDiscriminatingPathColliderRule_) {
-        // b not in sep(d,c): collider → orient b as collider at c
+        // b not in sep(d,c): collider. Java sets BOTH arrowheads at b — from a
+        // and from c — each guarded by its own isArrowheadAllowed, and returns
+        // false on either failure (FciOrient.java:867-877).
+        if (!isArrowheadAllowed(a, b, graph, knowledge_)) return false;
         if (!isArrowheadAllowed(c, b, graph, knowledge_)) return false;
 
+        graph.setEndpoint(a, b, Endpoint::ARROW);
         graph.setEndpoint(c, b, Endpoint::ARROW);
         changeFlag_ = true;
-        return false;  // 7.6.3: returns false for collider case
-    } else if (bInSepset && doDiscriminatingPathTailRule_) {
-        // b in sep(d,c): noncollider → orient c -> b (tail at b from c)
+        return false;  // 7.6.3: falls through to `return false` for the collider case
+    } else if (doDiscriminatingPathTailRule_) {
+        // Java's else-if is on doDiscriminatingPathTailRule alone
+        // (FciOrient.java:885) — there is no sepset.contains(b) guard, so this
+        // also fires when b is not in sep(d,c) but the collider rule is off.
         graph.setEndpoint(c, b, Endpoint::TAIL);
         changeFlag_ = true;
         return true;
@@ -712,6 +725,46 @@ void FciOrient::fciOrientbk(const Knowledge& bk, Graph& graph, const std::vector
         graph.setEndpoint(to, from, Endpoint::TAIL);
         graph.setEndpoint(from, to, Endpoint::ARROW);
         changeFlag_ = true;
+    }
+}
+
+// Port of GraphUtils.fciOrientbk (GraphUtils.java:1833-1871).
+//
+// Deliberately NOT the same as FciOrient::fciOrientbk above. 7.6.3 has two
+// separate implementations, and gfciR0 calls this one (GraphUtils.java:1793):
+// it has no isArrowheadAllowed guard and forces the endpoint unconditionally.
+// It also has no `if (knowledge.isEmpty()) return` early exit — with empty
+// knowledge both iterators are simply empty, so the effect is the same, but the
+// call site must not gate on it either.
+void FciOrient::graphUtilsFciOrientbk(const Knowledge& bk, Graph& graph,
+                                      const std::vector<NodePtr>& variables) {
+    auto findNode = [&](const std::string& name) -> NodePtr {
+        for (const auto& n : variables) {
+            if (n->getName() == name) return n;
+        }
+        return nullptr;
+    };
+
+    for (const auto& ke : bk.getListOfForbiddenEdges()) {
+        NodePtr from = findNode(ke.from);
+        NodePtr to = findNode(ke.to);
+        if (!from || !to) continue;
+
+        if (graph.getEdge(from, to).isNull()) continue;
+
+        // Orient to *-> from. No arrowhead-allowed check: Java does not have one.
+        graph.setEndpoint(to, from, Endpoint::ARROW);
+    }
+
+    for (const auto& ke : bk.getListOfRequiredEdges()) {
+        NodePtr from = findNode(ke.from);
+        NodePtr to = findNode(ke.to);
+        if (!from || !to) continue;
+
+        if (graph.getEdge(from, to).isNull()) continue;
+
+        graph.setEndpoint(to, from, Endpoint::TAIL);
+        graph.setEndpoint(from, to, Endpoint::ARROW);
     }
 }
 

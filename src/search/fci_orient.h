@@ -50,8 +50,17 @@ public:
     // Utility
     static bool isArrowheadAllowed(const NodePtr& x, const NodePtr& y,
                                     const Graph& graph, const Knowledge& knowledge);
+    // Port of FciOrient.fciOrientbk (FciOrient.java:1020). Guards each edge with
+    // isArrowheadAllowed. Used by FciOrient::ruleR0.
     void fciOrientbk(const Knowledge& bk, Graph& graph,
                      const std::vector<NodePtr>& variables);
+
+    // Port of GraphUtils.fciOrientbk (GraphUtils.java:1833) — a SEPARATE method
+    // in 7.6.3 with NO isArrowheadAllowed guard. This is the one gfciR0 calls
+    // (GraphUtils.java:1793), and it is called unconditionally there, not gated
+    // on knowledge.isEmpty(). Used by Gfci::gfciR0 and StarFci::gfciR0.
+    static void graphUtilsFciOrientbk(const Knowledge& bk, Graph& graph,
+                                      const std::vector<NodePtr>& variables);
 
     void setCompleteRuleSetUsed(bool used) { completeRuleSetUsed_ = used; }
     void setMaxDiscriminatingPathLength(int len) { maxDiscriminatingPathLength_ = len; }
