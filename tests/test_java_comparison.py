@@ -267,19 +267,19 @@ class TestPCComparison:
         df = _make_chain()
         java = oracle.run("pc", df, alpha=0.01)
         cpp_r, _ = cpp.run_pc(df, alpha=0.01)
-        assert_similarity("pc/chain", java, cpp_r["edges"], min_jaccard=1.0, min_type_agree=0.8)
+        assert_similarity("pc/chain", java, cpp_r["edges"], min_jaccard=1.0, min_type_agree=1.0)
 
     def test_collider(self, oracle, cpp):
         df = _make_collider()
         java = oracle.run("pc", df, alpha=0.01)
         cpp_r, _ = cpp.run_pc(df, alpha=0.01)
-        assert_similarity("pc/collider", java, cpp_r["edges"], min_jaccard=1.0, min_type_agree=0.8)
+        assert_similarity("pc/collider", java, cpp_r["edges"], min_jaccard=1.0, min_type_agree=1.0)
 
     def test_medium_dag(self, oracle, cpp):
         df = _make_dag(8, n_hidden=0, seed=10)
         java = oracle.run("pc", df, alpha=0.01)
         cpp_r, _ = cpp.run_pc(df, alpha=0.01)
-        assert_similarity("pc/medium", java, cpp_r["edges"], min_jaccard=0.85)
+        assert_similarity("pc/medium", java, cpp_r["edges"], min_jaccard=1.0, min_type_agree=1.0)
 
 
 @needs_java
@@ -294,13 +294,13 @@ class TestFGESComparison:
         df = _make_collider()
         java = oracle.run("fges", df, penalty_discount=1.0)
         cpp_r, _ = cpp.run_fges(df, penalty_discount=1.0)
-        assert_similarity("fges/collider", java, cpp_r["edges"], min_jaccard=1.0, min_type_agree=0.8)
+        assert_similarity("fges/collider", java, cpp_r["edges"], min_jaccard=1.0, min_type_agree=1.0)
 
     def test_medium_dag(self, oracle, cpp):
         df = _make_dag(8, n_hidden=0, seed=10)
         java = oracle.run("fges", df, penalty_discount=1.0)
         cpp_r, _ = cpp.run_fges(df, penalty_discount=1.0)
-        assert_similarity("fges/medium", java, cpp_r["edges"], min_jaccard=0.85)
+        assert_similarity("fges/medium", java, cpp_r["edges"], min_jaccard=1.0, min_type_agree=1.0)
 
 
 @needs_java
@@ -315,7 +315,7 @@ class TestBOSSComparison:
         df = _make_dag(8, n_hidden=0, seed=10)
         java = oracle.run("boss", df, penalty_discount=1.0)
         cpp_r, _ = cpp.run_boss(df, penalty_discount=1.0)
-        assert_similarity("boss/medium", java, cpp_r["edges"], min_jaccard=0.8)
+        assert_similarity("boss/medium", java, cpp_r["edges"], min_jaccard=1.0, min_type_agree=1.0)
 
 
 @needs_java
@@ -330,7 +330,7 @@ class TestGRaSPComparison:
         df = _make_dag(8, n_hidden=0, seed=10)
         java = oracle.run("grasp", df, penalty_discount=1.0)
         cpp_r, _ = cpp.run_grasp(df, penalty_discount=1.0)
-        assert_similarity("grasp/medium", java, cpp_r["edges"], min_jaccard=0.8)
+        assert_similarity("grasp/medium", java, cpp_r["edges"], min_jaccard=1.0, min_type_agree=1.0)
 
 
 # ---------------------------------------------------------------------------
@@ -344,25 +344,25 @@ class TestGFCIComparison:
         df = _make_chain()
         java = oracle.run("gfci", df, alpha=0.01, penalty_discount=1.0)
         cpp_r, _ = cpp.run_gfci(df, alpha=0.01, penalty_discount=1.0)
-        assert_similarity("gfci/chain", java, cpp_r["edges"], min_jaccard=0.9, min_type_agree=0.6)
+        assert_similarity("gfci/chain", java, cpp_r["edges"], min_jaccard=1.0, min_type_agree=1.0)
 
     def test_collider(self, oracle, cpp):
         df = _make_collider()
         java = oracle.run("gfci", df, alpha=0.01, penalty_discount=1.0)
         cpp_r, _ = cpp.run_gfci(df, alpha=0.01, penalty_discount=1.0)
-        assert_similarity("gfci/collider", java, cpp_r["edges"], min_jaccard=0.9, min_type_agree=0.6)
+        assert_similarity("gfci/collider", java, cpp_r["edges"], min_jaccard=1.0, min_type_agree=1.0)
 
     def test_latent(self, oracle, cpp):
         df = _make_latent()
         java = oracle.run("gfci", df, alpha=0.01, penalty_discount=1.0)
         cpp_r, _ = cpp.run_gfci(df, alpha=0.01, penalty_discount=1.0)
-        assert_similarity("gfci/latent", java, cpp_r["edges"], min_jaccard=0.75, min_type_agree=0.5)
+        assert_similarity("gfci/latent", java, cpp_r["edges"], min_jaccard=1.0, min_type_agree=1.0)
 
     def test_medium_with_latents(self, oracle, cpp):
         df = _make_dag(8, n_hidden=2, seed=10)
         java = oracle.run("gfci", df, alpha=0.01, penalty_discount=1.0)
         cpp_r, _ = cpp.run_gfci(df, alpha=0.01, penalty_discount=1.0)
-        assert_similarity("gfci/medium+latents", java, cpp_r["edges"], min_jaccard=0.75, min_type_agree=0.5)
+        assert_similarity("gfci/medium+latents", java, cpp_r["edges"], min_jaccard=1.0, min_type_agree=1.0)
 
 
 @needs_java
@@ -371,13 +371,13 @@ class TestBOSSFCIComparison:
         df = _make_chain()
         java = oracle.run("boss_fci", df, alpha=0.01, penalty_discount=1.0)
         cpp_r, _ = cpp.run_boss_fci(df, alpha=0.01, penalty_discount=1.0)
-        assert_similarity("boss_fci/chain", java, cpp_r["edges"], min_jaccard=0.9, min_type_agree=0.6)
+        assert_similarity("boss_fci/chain", java, cpp_r["edges"], min_jaccard=1.0, min_type_agree=1.0)
 
     def test_latent(self, oracle, cpp):
         df = _make_latent()
         java = oracle.run("boss_fci", df, alpha=0.01, penalty_discount=1.0)
         cpp_r, _ = cpp.run_boss_fci(df, alpha=0.01, penalty_discount=1.0)
-        assert_similarity("boss_fci/latent", java, cpp_r["edges"], min_jaccard=0.75, min_type_agree=0.5)
+        assert_similarity("boss_fci/latent", java, cpp_r["edges"], min_jaccard=1.0, min_type_agree=1.0)
 
 
 @needs_java
@@ -386,13 +386,13 @@ class TestGRaSPFCIComparison:
         df = _make_chain()
         java = oracle.run("grasp_fci", df, alpha=0.01, penalty_discount=1.0)
         cpp_r, _ = cpp.run_grasp_fci(df, alpha=0.01, penalty_discount=1.0)
-        assert_similarity("grasp_fci/chain", java, cpp_r["edges"], min_jaccard=0.9, min_type_agree=0.6)
+        assert_similarity("grasp_fci/chain", java, cpp_r["edges"], min_jaccard=1.0, min_type_agree=1.0)
 
     def test_latent(self, oracle, cpp):
         df = _make_latent()
         java = oracle.run("grasp_fci", df, alpha=0.01, penalty_discount=1.0)
         cpp_r, _ = cpp.run_grasp_fci(df, alpha=0.01, penalty_discount=1.0)
-        assert_similarity("grasp_fci/latent", java, cpp_r["edges"], min_jaccard=0.75, min_type_agree=0.5)
+        assert_similarity("grasp_fci/latent", java, cpp_r["edges"], min_jaccard=1.0, min_type_agree=1.0)
 
 
 # ---------------------------------------------------------------------------
@@ -448,8 +448,9 @@ class TestBostonKnowledgeComparison:
         df, kn, kn_java = boston
         java = oracle.run("pc", df, alpha=0.01, knowledge=kn_java)
         cpp_r, _ = cpp.run_pc(df, alpha=0.01, knowledge=kn)
-        # Without hash-order replication, skeleton/orientation can differ slightly from Java 7.6.3
-        assert_similarity("pc/boston", java, cpp_r["edges"], min_jaccard=0.90, min_type_agree=0.70)
+        # Orientation now matches Java except one edge; the residual Jaccard gap is a
+        # single missing adjacency (PANAS_NA — worry_scale) from FAS, not orientation.
+        assert_similarity("pc/boston", java, cpp_r["edges"], min_jaccard=0.94, min_type_agree=0.93)
 
     def test_fges_boston(self, oracle, cpp, boston):
         df, kn, kn_java = boston
@@ -461,15 +462,19 @@ class TestBostonKnowledgeComparison:
         df, kn, kn_java = boston
         java = oracle.run("boss", df, penalty_discount=1.0, knowledge=kn_java)
         cpp_r, _ = cpp.run_boss(df, penalty_discount=1.0, knowledge=kn)
-        # BOSS uses random permutations — Java results can vary between runs.
-        assert_similarity("boss/boston", java, cpp_r["edges"], min_jaccard=0.65, min_type_agree=0.60)
+        # Java Boss defaults to numStarts=1, useDataOrder=true, numThreads=1
+        # (Boss.java:91,96,102), so every shuffle path is unreachable and the
+        # oracle is deterministic. Measured exact on both sides.
+        assert_similarity("boss/boston", java, cpp_r["edges"], min_jaccard=1.0, min_type_agree=1.0)
 
     def test_grasp_boston(self, oracle, cpp, boston):
         df, kn, kn_java = boston
         java = oracle.run("grasp", df, penalty_discount=1.0, knowledge=kn_java)
         cpp_r, _ = cpp.run_grasp(df, penalty_discount=1.0, knowledge=kn)
-        # GRaSP uses randomized DFS — Java results can vary between runs.
-        assert_similarity("grasp/boston", java, cpp_r["edges"], min_jaccard=0.65, min_type_agree=0.60)
+        # Java Grasp defaults to useDataOrder=true, numStarts=1,
+        # allowInternalRandomness=false (Grasp.java:81,85,87) — deterministic.
+        # The residual gap here is a real fidelity difference, not run-to-run noise.
+        assert_similarity("grasp/boston", java, cpp_r["edges"], min_jaccard=0.85, min_type_agree=0.87)
 
     def test_gfci_boston(self, oracle, cpp, boston):
         df, kn, kn_java = boston
@@ -477,23 +482,29 @@ class TestBostonKnowledgeComparison:
         cpp_r, _ = cpp.run_gfci(df, alpha=0.01, penalty_discount=1.0, knowledge=kn)
         # GFCI is deterministic; Jaccard 1.0 achieved via Java hash-order replication in
         # gfciExtraEdgeRemovalStep and gfciR0 adjacency loops. One known disagreement:
-        # TIB <-> TST (Java bidirected) vs TIB --> TST (C++ directed) due to R1 firing
-        # order in rulesR1R2cycle — fixing it hurts GRaSP-FCI. Type agreement ~95.5%.
+        # TIB <-> TST (Java bidirected) vs TIB --> TST (C++ directed). Type agreement
+        # ~95.5%. The 'R1 firing order in rulesR1R2cycle' explanation is unconfirmed:
+        # an independent re-derivation applying Java hash order there changes nothing.
+        # See docs/fidelity/README.md.
         assert_similarity("gfci/boston", java, cpp_r["edges"], min_jaccard=1.0, min_type_agree=0.95)
 
     def test_boss_fci_boston(self, oracle, cpp, boston):
         df, kn, kn_java = boston
         java = oracle.run("boss_fci", df, alpha=0.01, penalty_discount=1.0, knowledge=kn_java)
         cpp_r, _ = cpp.run_boss_fci(df, alpha=0.01, penalty_discount=1.0, knowledge=kn)
-        # BOSS uses random permutations — Java results vary between runs; threshold is conservative.
-        assert_similarity("boss_fci/boston", java, cpp_r["edges"], min_jaccard=0.65, min_type_agree=0.30)
+        # Exact on both sides. The previous 0.65/0.30 bound was justified by a
+        # non-determinism claim that does not hold (see docs/fidelity/README.md)
+        # and was hiding a perfect result.
+        assert_similarity("boss_fci/boston", java, cpp_r["edges"], min_jaccard=1.0, min_type_agree=1.0)
 
     def test_grasp_fci_boston(self, oracle, cpp, boston):
         df, kn, kn_java = boston
         java = oracle.run("grasp_fci", df, alpha=0.01, penalty_discount=1.0, knowledge=kn_java)
         cpp_r, _ = cpp.run_grasp_fci(df, alpha=0.01, penalty_discount=1.0, knowledge=kn)
-        # GRaSP uses randomized DFS, so Java results can vary between runs.
-        assert_similarity("grasp_fci/boston", java, cpp_r["edges"], min_jaccard=0.55, min_type_agree=0.35)
+        # Deterministic on both sides since the Grasp::graspDfs pointer-ordering fix.
+        # 0.809/0.412 is a real fidelity gap and the worst remaining cell; it is
+        # upstream of FciOrient (see docs/fidelity/README.md).
+        assert_similarity("grasp_fci/boston", java, cpp_r["edges"], min_jaccard=0.8, min_type_agree=0.4)
 
 
 # ---------------------------------------------------------------------------

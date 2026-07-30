@@ -3,7 +3,7 @@
 Comparison of **Tetrad 7.6.3 (Java)** against the **C++ port** across all implemented algorithms
 and datasets.
 
-*Auto-generated on 2026-03-21 16:55:30 by `tests/generate_comparison_report.py`.*
+*Auto-generated on 2026-07-29 20:17:35 by `tests/generate_comparison_report.py`.*
 
 ## Metrics
 
@@ -34,8 +34,8 @@ Settings: alpha = 0.01, penalty discount = 1.0.
 |-----------|------|---------|------|-----|------|-----|-------------|------------|--------|
 | PC | CPDAG | chain (X->Y->Z) | 3 | 3000 | 2 | 2 | 1.000 | 100% | PASS |
 | PC | CPDAG | collider (X->Z<-Y) | 3 | 3000 | 2 | 2 | 1.000 | 100% | PASS |
-| PC | CPDAG | medium DAG | 8 | 2000 | 10 | 10 | 1.000 | 60% | WARN |
-| PC | CPDAG | Boston EMA (temporal knowledge) | 14 | 640 | 18 | 17 | 0.944 | 76% | WARN |
+| PC | CPDAG | medium DAG | 8 | 2000 | 10 | 10 | 1.000 | 100% | PASS |
+| PC | CPDAG | Boston EMA (temporal knowledge) | 14 | 640 | 18 | 17 | 0.944 | 94% | WARN |
 | FGES | CPDAG | chain (X->Y->Z) | 3 | 3000 | 2 | 2 | 1.000 | 100% | PASS |
 | FGES | CPDAG | collider (X->Z<-Y) | 3 | 3000 | 2 | 2 | 1.000 | 100% | PASS |
 | FGES | CPDAG | medium DAG | 8 | 2000 | 12 | 12 | 1.000 | 100% | PASS |
@@ -45,7 +45,7 @@ Settings: alpha = 0.01, penalty discount = 1.0.
 | BOSS | CPDAG | Boston EMA (temporal knowledge) | 14 | 640 | 30 | 30 | 1.000 | 100% | PASS |
 | GRASP | CPDAG | chain (X->Y->Z) | 3 | 3000 | 2 | 2 | 1.000 | 100% | PASS |
 | GRASP | CPDAG | medium DAG | 8 | 2000 | 12 | 12 | 1.000 | 100% | PASS |
-| GRASP | CPDAG | Boston EMA (temporal knowledge) | 14 | 640 | 27 | 28 | 0.833 | 84% | WARN |
+| GRASP | CPDAG | Boston EMA (temporal knowledge) | 14 | 640 | 27 | 27 | 0.862 | 88% | WARN |
 | GFCI | PAG | chain (X->Y->Z) | 3 | 3000 | 2 | 2 | 1.000 | 100% | PASS |
 | GFCI | PAG | collider (X->Z<-Y) | 3 | 3000 | 2 | 2 | 1.000 | 100% | PASS |
 | GFCI | PAG | latent (L->X, L->Y, X->Z) | 3 | 3000 | 2 | 2 | 1.000 | 100% | PASS |
@@ -56,7 +56,7 @@ Settings: alpha = 0.01, penalty discount = 1.0.
 | BOSS-FCI | PAG | Boston EMA (temporal knowledge) | 14 | 640 | 21 | 21 | 1.000 | 100% | PASS |
 | GRASP-FCI | PAG | chain (X->Y->Z) | 3 | 3000 | 2 | 2 | 1.000 | 100% | PASS |
 | GRASP-FCI | PAG | latent (L->X, L->Y, X->Z) | 3 | 3000 | 2 | 2 | 1.000 | 100% | PASS |
-| GRASP-FCI | PAG | Boston EMA (temporal knowledge) | 14 | 640 | 21 | 17 | 0.810 | 53% | WARN |
+| GRASP-FCI | PAG | Boston EMA (temporal knowledge) | 14 | 640 | 21 | 17 | 0.810 | 41% | WARN |
 
 ---
 
@@ -64,54 +64,10 @@ Settings: alpha = 0.01, penalty discount = 1.0.
 
 ### PC
 
-**PC — medium DAG discrepancies:**
-
-| Java | C++ | Pattern |
-|------|-----|---------|
-| `X4 --- X2` | `X4 --> X2` | `---` (Java) vs `-->` (C++) |
-| `X2 --> X8` | `X8 --> X2` | `-->` direction reversal |
-| `X3 --> X7` | `X7 --> X3` | `-->` direction reversal |
-| `X3 --> X8` | `X8 --> X3` | `-->` direction reversal |
-
-<details>
-<summary>Full edge lists</summary>
-
-Java edges:
-```
-X1 --> X5
-X2 --> X7
-X2 --> X8
-X3 --> X5
-X3 --> X7
-X3 --> X8
-X4 --- X2
-X4 --> X5
-X4 --> X7
-X6 --> X7
-```
-
-C++ edges:
-```
-X1 --> X5
-X2 --> X7
-X3 --> X5
-X4 --> X2
-X4 --> X5
-X4 --> X7
-X6 --> X7
-X7 --> X3
-X8 --> X2
-X8 --> X3
-```
-</details>
-
 **PC — Boston EMA (temporal knowledge) discrepancies:**
 
 | Java | C++ | Pattern |
 |------|-----|---------|
-| `PANAS_PA --> PHQ9` | `PHQ9 --> PANAS_PA` | `-->` direction reversal |
-| `PHQ9_lag --- PANAS_PA_lag` | `PHQ9_lag --> PANAS_PA_lag` | `---` (Java) vs `-->` (C++) |
-| `PANAS_PA_lag --> worry_scale_lag` | `worry_scale_lag --> PANAS_PA_lag` | `-->` direction reversal |
 | `TIB --> TST` | `TST --> TIB` | `-->` direction reversal |
 
 Java finds extra adjacencies: `PANAS_NA — worry_scale`.
@@ -147,10 +103,11 @@ PANAS_NA_lag --- PHQ9_lag
 PANAS_NA_lag --> PANAS_NA
 PANAS_NA_lag --> PHQ9
 PANAS_NA_lag --> worry_scale_lag
+PANAS_PA --> PHQ9
 PANAS_PA_lag --> PANAS_PA
+PANAS_PA_lag --> worry_scale_lag
 PHQ9 --> PANAS_NA
-PHQ9 --> PANAS_PA
-PHQ9_lag --> PANAS_PA_lag
+PHQ9_lag --- PANAS_PA_lag
 PHQ9_lag --> PHQ9
 TIB_lag --- TST_lag
 TIB_lag --> TIB
@@ -158,7 +115,6 @@ TST --> TIB
 TST_lag --> TST
 alcohol_bev_lag --> alcohol_bev
 alcohol_bev_lag --> worry_scale_lag
-worry_scale_lag --> PANAS_PA_lag
 worry_scale_lag --> worry_scale
 ```
 </details>
@@ -169,14 +125,13 @@ worry_scale_lag --> worry_scale
 
 | Java | C++ | Pattern |
 |------|-----|---------|
-| `TIB_lag --> PANAS_NA_lag` | `PANAS_NA_lag --> TIB_lag` | `-->` direction reversal |
-| `worry_scale_lag --> PANAS_NA_lag` | `worry_scale_lag --- PANAS_NA_lag` | `-->` (Java) vs `---` (C++) |
-| `TIB_lag --> PHQ9_lag` | `PHQ9_lag --> TIB_lag` | `-->` direction reversal |
-| `TIB_lag --> TST_lag` | `TST_lag --> TIB_lag` | `-->` direction reversal |
+| `PANAS_NA_lag --> PHQ9_lag` | `PHQ9_lag --> PANAS_NA_lag` | `-->` direction reversal |
+| `PHQ9_lag --> PANAS_PA_lag` | `PANAS_PA_lag --- PHQ9_lag` | `-->` (Java) vs `---` (C++) |
+| `worry_scale_lag --> PANAS_PA_lag` | `worry_scale_lag --- PANAS_PA_lag` | `-->` (Java) vs `---` (C++) |
 
-Java finds extra adjacencies: `PHQ9_lag — TST_lag`, `TST_lag — worry_scale_lag`.
+Java finds extra adjacencies: `PHQ9_lag — TST_lag`, `PHQ9_lag — TIB_lag`.
 
-C++ finds extra adjacencies: `PHQ9_lag — alcohol_bev_lag`, `TIB_lag — worry_scale_lag`, `PANAS_PA_lag — TST_lag`.
+C++ finds extra adjacencies: `PHQ9_lag — worry_scale_lag`, `PANAS_NA_lag — TST_lag`.
 
 <details>
 <summary>Full edge lists</summary>
@@ -219,28 +174,27 @@ PANAS_NA --> PHQ9
 PANAS_NA --> worry_scale
 PANAS_NA_lag --> PANAS_NA
 PANAS_NA_lag --> PANAS_PA
-PANAS_NA_lag --> PHQ9_lag
-PANAS_NA_lag --> TIB_lag
 PANAS_PA --> PHQ9
+PANAS_PA_lag --- PHQ9_lag
 PANAS_PA_lag --> PANAS_PA
 PANAS_PA_lag --> PHQ9
-PANAS_PA_lag --> TST_lag
 PHQ9_lag --> PANAS_NA
-PHQ9_lag --> PANAS_PA_lag
+PHQ9_lag --> PANAS_NA_lag
 PHQ9_lag --> PHQ9
-PHQ9_lag --> TIB_lag
 TIB --> TST
+TIB_lag --> PANAS_NA_lag
 TIB_lag --> TIB
 TIB_lag --> TST
-TST_lag --> TIB_lag
+TIB_lag --> TST_lag
+TST_lag --> PANAS_NA_lag
 TST_lag --> TST
 alcohol_bev_lag --- worry_scale_lag
-alcohol_bev_lag --> PHQ9_lag
 alcohol_bev_lag --> alcohol_bev
-worry_scale_lag --- PANAS_NA_lag
-worry_scale_lag --> PANAS_PA_lag
-worry_scale_lag --> TIB_lag
+worry_scale_lag --- PANAS_PA_lag
+worry_scale_lag --- PHQ9_lag
+worry_scale_lag --> PANAS_NA_lag
 worry_scale_lag --> TST
+worry_scale_lag --> TST_lag
 worry_scale_lag --> worry_scale
 ```
 </details>
@@ -352,22 +306,24 @@ worry_scale_lag --> worry_scale
 |---------|------|-----|------|-----|-------------|------------|
 | chain (X->Y->Z) | 3 | 3000 | 2 | 2 | 1.000 | 100% |
 | latent (L->X, L->Y, X->Z) | 3 | 3000 | 2 | 2 | 1.000 | 100% |
-| Boston EMA (temporal knowledge) | 14 | 640 | 21 | 17 | 0.810 | 53% |
+| Boston EMA (temporal knowledge) | 14 | 640 | 21 | 17 | 0.810 | 41% |
 
 **GRASP-FCI — Boston EMA (temporal knowledge) discrepancies:**
 
 | Java | C++ | Pattern |
 |------|-----|---------|
-| `worry_scale_lag --> PANAS_NA_lag` | `PANAS_NA_lag --> worry_scale_lag` | `-->` direction reversal |
+| `worry_scale_lag --> PANAS_NA_lag` | `worry_scale_lag o-> PANAS_NA_lag` | `-->` (Java) vs `o->` (C++) |
 | `PANAS_PA_lag o-> PANAS_PA` | `PANAS_PA_lag --> PANAS_PA` | `o->` (Java) vs `-->` (C++): partial to full orientation |
 | `PANAS_PA <-> PHQ9` | `PANAS_PA --> PHQ9` | `<->` (Java) vs `-->` (C++): bidirected to directed |
 | `PANAS_PA_lag o-> PHQ9_lag` | `PANAS_PA_lag <-> PHQ9_lag` | `o->` (Java) vs `<->` (C++): bidirected over-orientation |
-| `PANAS_PA_lag o-> worry_scale_lag` | `worry_scale_lag --> PANAS_PA_lag` | `o->` (Java) vs `-->` (C++): partial to full orientation |
+| `PANAS_PA_lag o-> worry_scale_lag` | `worry_scale_lag o-> PANAS_PA_lag` | `o->` direction reversal |
 | `TIB_lag o-> TST_lag` | `TIB_lag o-o TST_lag` | `o->` (Java) vs `o-o` (C++) |
 | `TST <-> TST_lag` | `TST_lag --> TST` | `<->` (Java) vs `-->` (C++): bidirected to directed |
-| `worry_scale <-> worry_scale_lag` | `worry_scale_lag --> worry_scale` | `<->` (Java) vs `-->` (C++): bidirected to directed |
+| `alcohol_bev_lag --> alcohol_bev` | `alcohol_bev_lag o-> alcohol_bev` | `-->` (Java) vs `o->` (C++) |
+| `worry_scale_lag --> alcohol_bev_lag` | `alcohol_bev_lag o-o worry_scale_lag` | `-->` (Java) vs `o-o` (C++) |
+| `worry_scale <-> worry_scale_lag` | `worry_scale_lag o-> worry_scale` | `<->` (Java) vs `o->` (C++) |
 
-Java finds extra adjacencies: `PANAS_NA_lag — TIB_lag`, `TST — worry_scale`, `PANAS_PA — worry_scale`, `TST_lag — worry_scale_lag`.
+Java finds extra adjacencies: `PANAS_NA_lag — TIB_lag`, `PANAS_PA — worry_scale`, `TST_lag — worry_scale_lag`, `TST — worry_scale`.
 
 <details>
 <summary>Full edge lists</summary>
@@ -402,7 +358,6 @@ C++ edges:
 PANAS_NA --> PHQ9
 PANAS_NA --> worry_scale
 PANAS_NA <-> PANAS_NA_lag
-PANAS_NA_lag --> worry_scale_lag
 PANAS_PA --> PHQ9
 PANAS_PA_lag --> PANAS_PA
 PANAS_PA_lag <-> PHQ9_lag
@@ -412,10 +367,11 @@ TIB --> TST
 TIB_lag o-> TIB
 TIB_lag o-o TST_lag
 TST_lag --> TST
-alcohol_bev_lag --> alcohol_bev
-worry_scale_lag --> PANAS_PA_lag
-worry_scale_lag --> alcohol_bev_lag
-worry_scale_lag --> worry_scale
+alcohol_bev_lag o-> alcohol_bev
+alcohol_bev_lag o-o worry_scale_lag
+worry_scale_lag o-> PANAS_NA_lag
+worry_scale_lag o-> PANAS_PA_lag
+worry_scale_lag o-> worry_scale
 ```
 </details>
 

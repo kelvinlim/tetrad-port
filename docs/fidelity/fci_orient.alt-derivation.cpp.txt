@@ -1,0 +1,1141 @@
+// fci_orient.cpp
+//
+// Port of edu.cmu.tetrad.search.utils.FciOrient from Java Tetrad 7.6.3.
+//
+// This is a BUG-FOR-BUG transcription. Several places in the Java look wrong
+// (a `return` where `continue` was surely meant, an endpoint accessor whose
+// arguments look swapped, a BFS distance counter that never advances). Those
+// are reproduced verbatim and documented in SUSPECTED_BUGS.md.
+//
+// ENDPOINT ACCESSOR CONVENTION (EdgeListGraph.java:601, :622)
+//   graph.getEndpoint(p, q)      -> the endpoint of edge p--q that sits AT q.
+//   graph.setEndpoint(p, q, ep)  -> sets the endpoint of edge p--q that sits AT q.
+//   graph.getNodesInTo(n, ep)    -> {m adjacent to n : endpoint AT n is ep}.
+//   getNodesOutTo(n, ep)         -> {m adjacent to n : endpoint AT m is ep}.
+// Every call below carries a comment naming the node the endpoint belongs to.
+
+#include "search/fci_orient.h"
+
+#include "graph/edge.h"
+#include "graph/endpoint.h"
+#include "graph/node.h"
+#include "util/choice_generator.h"
+#include "util/java_hash.h"
+#include "util/log_stream.h"
+
+#include <algorithm>
+#include <deque>
+#include <string>
+#include <unordered_map>
+#include <unordered_set>
+#include <vector>
+
+namespace tetrad {
+
+namespace {
+
+// --------------------------------------------------------------------------
+// Node identity helpers.
+//
+// Java compares nodes with `==` (object identity) inside FciOrient and with
+// `.equals()` (GraphNode.java:210 -> name equality) inside List/Set/Map. All
+// Node objects here come out of the same Graph, so identity and name equality
+// coincide; we use name equality everywhere, which is the safer of the two.
+// --------------------------------------------------------------------------
+
+inline bool sameNode(const NodePtr& a, const NodePtr& b) {
+    if (a == b) return true;
+    if (!a || !b) return false;
+    return *a == *b;
+}
+
+inline bool listContains(const std::vector<NodePtr>& v, const NodePtr& n) {
+    for (const NodePtr& x : v) {
+        if (sameNode(x, n)) return true;
+    }
+    return false;
+}
+
+// Java: Set<Node>.contains(b), which uses GraphNode.equals (name equality).
+// The C++ std::set<NodePtr> orders by raw pointer, so count()/find() would be
+// an identity test; scan by name instead to match Java.
+inline bool setContains(const std::set<NodePtr>& s, const NodePtr& n) {
+    for (const NodePtr& x : s) {
+        if (sameNode(x, n)) return true;
+    }
+    return false;
+}
+
+// --------------------------------------------------------------------------
+// EdgeListGraph.getAdjacentNodes (EdgeListGraph.java:561-577):
+//
+//     Set<Edge> edges = this.edgeLists.get(node);
+//     Set<Node> adj = new HashSet<>();
+//     for (Edge edge : edges) adj.add(edge.getDistalNode(node));
+//     return new ArrayList<>(adj);
+//
+// The returned List is therefore in java.util.HashSet<Node> *bucket* order,
+// keyed on GraphNode.hashCode() == name.hashCode() (GraphNode.java:203).
+// util/java_hash.h::sortByJavaHashOrder models exactly that, so it is the
+// correct model at every getAdjacentNodes() call site. (Within-bucket ties
+// are only approximated -- see SUSPECTED_BUGS.md.)
+// --------------------------------------------------------------------------
+
+std::vector<NodePtr> adjacentNodesJavaOrder(const Graph& graph, const NodePtr& node) {
+    std::vector<NodePtr> adj = graph.getAdjacentNodes(node);
+    sortByJavaHashOrder(adj, node);
+    return adj;
+}
+
+// EdgeListGraph.getNodesOutTo (EdgeListGraph.java:657-668). Not present on the
+// C++ Graph, so transcribed here directly from the Java.
+//
+//     for (Edge edge : getEdges(node))
+//         if (edge.getDistalEndpoint(node) == endpoint)
+//             nodes.add(edge.getDistalNode(node));
+//
+// i.e. all m adjacent to `node` whose endpoint AT m equals `endpoint`.
+std::vector<NodePtr> getNodesOutTo(const Graph& graph, const NodePtr& node, Endpoint endpoint) {
+    std::vector<NodePtr> nodes;
+    std::vector<Edge> edges = graph.getEdges(node);
+    for (const Edge& edge : edges) {
+        if (edge.getDistalEndpoint(node) == endpoint) {
+            nodes.push_back(edge.getDistalNode(node));
+        }
+    }
+    return nodes;
+}
+
+// GraphSearchUtils.translate(String, List<Node>): first node in `variables`
+// whose name equals `name`, else null.
+NodePtr translate(const std::string& name, const std::vector<NodePtr>& variables) {
+    for (const NodePtr& v : variables) {
+        if (v && v->getName() == name) return v;
+    }
+    return nullptr;
+}
+
+// GraphUtils.asList(int[], List<Node>) -- GraphUtils.java:652.
+std::vector<NodePtr> asList(const int* indices, int count, const std::vector<NodePtr>& nodes) {
+    std::vector<NodePtr> list;
+    list.reserve(static_cast<size_t>(count));
+    for (int i = 0; i < count; i++) {
+        list.push_back(nodes[static_cast<size_t>(indices[i])]);
+    }
+    return list;
+}
+
+// --------------------------------------------------------------------------
+// FciOrient.getUcPdPsHelper (FciOrient.java:117-149).
+//
+// Depth-first enumeration of every uncovered partially-directed path.
+// `soFar` is mutated in place and unwound on the way out, exactly as in Java.
+// --------------------------------------------------------------------------
+void getUcPdPsHelper(const NodePtr& curr, std::vector<NodePtr>& soFar, const NodePtr& end,
+                     std::vector<std::vector<NodePtr>>& ucPdPaths, const Graph& graph) {
+    if (listContains(soFar, curr)) {
+        return;
+    }
+
+    const NodePtr prev = soFar.back();
+    // getEndpoint(prev, curr) is the endpoint AT curr; getEndpoint(curr, prev)
+    // is the endpoint AT prev. Either kills partial-directedness.
+    if (graph.getEndpoint(prev, curr) == Endpoint::TAIL
+            || graph.getEndpoint(curr, prev) == Endpoint::ARROW) {
+        return; // Adding curr would make soFar not p.d.
+    } else if (soFar.size() >= 2) {
+        const NodePtr prev2 = soFar[soFar.size() - 2];
+        if (graph.isAdjacentTo(prev2, curr)) {
+            return; // Adding curr would make soFar not uncovered.
+        }
+    }
+
+    soFar.push_back(curr); // Adding curr is OK, so let's do it.
+
+    if (sameNode(curr, end)) {
+        // We've reached the goal! Save soFar as a path.
+        ucPdPaths.push_back(soFar);
+    } else {
+        // Otherwise, try each node adjacent to the current one.
+        std::vector<NodePtr> adjacents = adjacentNodesJavaOrder(graph, curr);
+        for (const NodePtr& next : adjacents) {
+            getUcPdPsHelper(next, soFar, end, ucPdPaths, graph);
+        }
+    }
+
+    // Java: soFar.remove(soFar.get(soFar.size() - 1)) -- removes the first
+    // element equal to the last one. `soFar` never contains duplicates (the
+    // contains() guard above), so this is always a pop of the tail.
+    soFar.pop_back();
+}
+
+// FciOrient.getUcPdPaths (FciOrient.java:91-103).
+std::vector<std::vector<NodePtr>> getUcPdPaths(const NodePtr& n1, const NodePtr& n2,
+                                               const Graph& graph) {
+    std::vector<std::vector<NodePtr>> ucPdPaths;
+
+    std::vector<NodePtr> soFar;
+    soFar.push_back(n1);
+
+    std::vector<NodePtr> adjacencies = adjacentNodesJavaOrder(graph, n1);
+    for (const NodePtr& curr : adjacencies) {
+        getUcPdPsHelper(curr, soFar, n2, ucPdPaths, graph);
+    }
+
+    return ucPdPaths;
+}
+
+// FciOrient.getUcCirclePaths (FciOrient.java:161-186).
+std::vector<std::vector<NodePtr>> getUcCirclePaths(const NodePtr& n1, const NodePtr& n2,
+                                                   const Graph& graph) {
+    std::vector<std::vector<NodePtr>> ucCirclePaths;
+    std::vector<std::vector<NodePtr>> ucPdPaths = getUcPdPaths(n1, n2, graph);
+
+    for (const std::vector<NodePtr>& path : ucPdPaths) {
+        for (size_t i = 0; i + 1 < path.size(); i++) {
+            const NodePtr& j = path[i];
+            const NodePtr& sj = path[i + 1];
+
+            // Endpoint AT sj, then endpoint AT j: both must be circles.
+            if (!(graph.getEndpoint(j, sj) == Endpoint::CIRCLE)) {
+                break;
+            }
+            if (!(graph.getEndpoint(sj, j) == Endpoint::CIRCLE)) {
+                break;
+            }
+            // This edge is OK, it's all circles.
+
+            if (i == path.size() - 2) {
+                // We're at the last edge, so this is a circle path.
+                ucCirclePaths.push_back(path);
+            }
+        }
+    }
+
+    return ucCirclePaths;
+}
+
+// FciOrient.orientTailPath (FciOrient.java:908-922). Free function; the caller
+// (ruleR5) sets changeFlag_, which is what the Java loop amounts to.
+void orientTailPath(const std::vector<NodePtr>& path, Graph& graph) {
+    for (size_t i = 0; i + 1 < path.size(); i++) {
+        const NodePtr& n1 = path[i];
+        const NodePtr& n2 = path[i + 1];
+
+        graph.setEndpoint(n1, n2, Endpoint::TAIL); // endpoint AT n2 := TAIL
+        graph.setEndpoint(n2, n1, Endpoint::TAIL); // endpoint AT n1 := TAIL
+    }
+}
+
+} // anonymous namespace
+
+// ==========================================================================
+// Construction
+// ==========================================================================
+
+// FciOrient.java:77-79.
+FciOrient::FciOrient(SepsetsGreedy& sepsets) : sepsets_(sepsets) {}
+
+// ==========================================================================
+// isArrowheadAllowed -- FciOrient.java:188-212
+//
+// "Is an arrowhead at y, on the edge x--y, allowed?"
+// ==========================================================================
+bool FciOrient::isArrowheadAllowed(const NodePtr& x, const NodePtr& y,
+                                   const Graph& graph, const Knowledge& knowledge) {
+    if (!graph.isAdjacentTo(x, y)) return false;
+
+    if (graph.getEndpoint(x, y) == Endpoint::ARROW) { // endpoint AT y
+        return true;
+    }
+
+    if (graph.getEndpoint(x, y) == Endpoint::TAIL) { // endpoint AT y
+        return false;
+    }
+
+    // endpoint AT x is ARROW and endpoint AT y is CIRCLE, i.e. x <-o y.
+    // NOTE: this returns *true* when the knowledge FORBIDS x -> y. See
+    // SUSPECTED_BUGS.md #1. Transcribed as-is.
+    if (graph.getEndpoint(y, x) == Endpoint::ARROW && graph.getEndpoint(x, y) == Endpoint::CIRCLE) {
+        if (knowledge.isForbidden(x->getName(), y->getName())) {
+            return true;
+        }
+    }
+
+    // endpoint AT x is TAIL and endpoint AT y is CIRCLE, i.e. x --o y.
+    if (graph.getEndpoint(y, x) == Endpoint::TAIL && graph.getEndpoint(x, y) == Endpoint::CIRCLE) {
+        if (knowledge.isForbidden(x->getName(), y->getName())) {
+            return false;
+        }
+    }
+
+    return graph.getEndpoint(x, y) == Endpoint::CIRCLE; // endpoint AT y
+}
+
+// ==========================================================================
+// orient -- FciOrient.java:220-236
+// ==========================================================================
+void FciOrient::orient(Graph& graph) {
+    if (verbose_) {
+        logStream() << "Starting FCI algorithm." << std::endl;
+    }
+
+    ruleR0(graph);
+
+    if (verbose_) {
+        logStream() << "R0" << std::endl;
+    }
+
+    // Step CI D. (Zhang's step F4.)
+    doFinalOrientation(graph);
+}
+
+// ==========================================================================
+// ruleR0 -- FciOrient.java:283-339
+// ==========================================================================
+void FciOrient::ruleR0(Graph& graph) {
+    graph.reorientAllWith(Endpoint::CIRCLE);
+    fciOrientbk(knowledge_, graph, graph.getNodes());
+
+    std::vector<NodePtr> nodes = graph.getNodes(); // Java: new ArrayList<>(this.nodes)
+
+    for (const NodePtr& b : nodes) {
+        // Java: new ArrayList<>(graph.getAdjacentNodes(b)) -- HashSet order.
+        std::vector<NodePtr> adjacentNodes = adjacentNodesJavaOrder(graph, b);
+
+        if (adjacentNodes.size() < 2) {
+            continue;
+        }
+
+        ChoiceGenerator cg(static_cast<int>(adjacentNodes.size()), 2);
+        const int* combination;
+
+        while ((combination = cg.next()) != nullptr) {
+            const NodePtr a = adjacentNodes[static_cast<size_t>(combination[0])];
+            const NodePtr c = adjacentNodes[static_cast<size_t>(combination[1])];
+
+            // Skip triples that are shielded.
+            if (graph.isAdjacentTo(a, c)) {
+                continue;
+            }
+
+            if (graph.isDefCollider(a, b, c)) {
+                continue;
+            }
+
+            if (sepsets_.isUnshieldedCollider(a, b, c)) {
+                if (!isArrowheadAllowed(a, b, graph, knowledge_)) { // arrowhead AT b
+                    continue;
+                }
+
+                if (!isArrowheadAllowed(c, b, graph, knowledge_)) { // arrowhead AT b
+                    continue;
+                }
+
+                graph.setEndpoint(a, b, Endpoint::ARROW); // endpoint AT b := ARROW
+                graph.setEndpoint(c, b, Endpoint::ARROW); // endpoint AT b := ARROW
+
+                if (verbose_) {
+                    logStream() << "R0: Orienting collider " << a->getName() << " *-> "
+                                << b->getName() << " <-* " << c->getName() << std::endl;
+                }
+                // Java also calls printWrongColliderMessage(a, b, c, graph) here;
+                // that needs `truePag`, which the C++ header does not expose. It is
+                // pure logging and has no effect on the graph.
+            }
+        }
+    }
+}
+
+// ==========================================================================
+// doFinalOrientation -- FciOrient.java:346-352
+// (the header spells this finalOrientation(); doFinalOrientation() is an
+//  inline alias declared there.)
+// ==========================================================================
+void FciOrient::finalOrientation(Graph& graph) {
+    if (completeRuleSetUsed_) {
+        zhangFinalOrientation(graph);
+    } else {
+        spirtesFinalOrientation(graph);
+    }
+}
+
+// ==========================================================================
+// spirtesFinalOrientation -- FciOrient.java:354-377
+// ==========================================================================
+void FciOrient::spirtesFinalOrientation(Graph& graph) {
+    changeFlag_ = true;
+    bool firstTime = true;
+
+    while (changeFlag_) {
+        changeFlag_ = false;
+        rulesR1R2cycle(graph);
+        ruleR3(graph);
+
+        // R4 requires an arrow orientation.
+        if (changeFlag_ || (firstTime && !knowledge_.isEmpty())) {
+            ruleR4B(graph);
+            firstTime = false;
+        }
+    }
+}
+
+// ==========================================================================
+// zhangFinalOrientation -- FciOrient.java:379-422
+// ==========================================================================
+void FciOrient::zhangFinalOrientation(Graph& graph) {
+    changeFlag_ = true;
+    bool firstTime = true;
+
+    while (changeFlag_) {
+        changeFlag_ = false;
+        rulesR1R2cycle(graph);
+        ruleR3(graph);
+
+        // R4 requires an arrow orientation.
+        if (changeFlag_ || (firstTime && !knowledge_.isEmpty())) {
+            ruleR4B(graph);
+            firstTime = false;
+        }
+    }
+
+    // Java re-tests isCompleteRuleSetUsed() here; we only get here when it is
+    // true, so the guard is redundant. Kept for shape.
+    if (completeRuleSetUsed_) {
+        // By a remark on page 100 of Zhang's dissertation, apply R5 once.
+        ruleR5(graph);
+
+        // By a further remark on page 102, apply R6, R7 as many times as possible.
+        changeFlag_ = true;
+
+        while (changeFlag_) {
+            changeFlag_ = false;
+            ruleR6R7(graph);
+        }
+
+        // Finally, apply R8-R10 as many times as possible.
+        changeFlag_ = true;
+
+        while (changeFlag_) {
+            changeFlag_ = false;
+            rulesR8R9R10(graph);
+        }
+    }
+}
+
+// ==========================================================================
+// rulesR1R2cycle -- FciOrient.java:426-454
+// ==========================================================================
+void FciOrient::rulesR1R2cycle(Graph& graph) {
+    std::vector<NodePtr> nodes = graph.getNodes();
+
+    for (const NodePtr& B : nodes) {
+        // Java: new ArrayList<>(graph.getAdjacentNodes(B)) -- HashSet order.
+        std::vector<NodePtr> adj = adjacentNodesJavaOrder(graph, B);
+
+        if (adj.size() < 2) {
+            continue;
+        }
+
+        ChoiceGenerator cg(static_cast<int>(adj.size()), 2);
+        const int* combination;
+
+        while ((combination = cg.next()) != nullptr) {
+            const NodePtr A = adj[static_cast<size_t>(combination[0])];
+            const NodePtr C = adj[static_cast<size_t>(combination[1])];
+
+            // The choice generator doesn't do different orders, so we must
+            // switch A & C around by hand.
+            ruleR1(A, B, C, graph);
+            ruleR1(C, B, A, graph);
+            ruleR2(A, B, C, graph);
+            ruleR2(C, B, A, graph);
+        }
+    }
+}
+
+// ==========================================================================
+// ruleR1 -- FciOrient.java:458-476.  Away from collider.
+// If a*->b o-*c and a, c not adjacent then a*->b->c.
+// ==========================================================================
+void FciOrient::ruleR1(const NodePtr& a, const NodePtr& b, const NodePtr& c, Graph& graph) {
+    if (graph.isAdjacentTo(a, c)) {
+        return;
+    }
+
+    // endpoint AT b is ARROW (a*->b) and endpoint AT b is CIRCLE (b o-*c).
+    if (graph.getEndpoint(a, b) == Endpoint::ARROW && graph.getEndpoint(c, b) == Endpoint::CIRCLE) {
+        if (!isArrowheadAllowed(b, c, graph, knowledge_)) { // arrowhead AT c
+            return;
+        }
+
+        graph.setEndpoint(c, b, Endpoint::TAIL);  // endpoint AT b := TAIL
+        graph.setEndpoint(b, c, Endpoint::ARROW); // endpoint AT c := ARROW
+        changeFlag_ = true;
+
+        if (verbose_) {
+            logStream() << "R1: Away from collider " << graph.getEdge(b, c).toString() << std::endl;
+        }
+    }
+}
+
+// ==========================================================================
+// ruleR2 -- FciOrient.java:480-498.  Away from ancestor. Zhang's R2.
+// If a*-oc and either a-->b*->c or a*->b-->c, then a*->c.
+// ==========================================================================
+void FciOrient::ruleR2(const NodePtr& a, const NodePtr& b, const NodePtr& c, Graph& graph) {
+    // endpoint AT c is CIRCLE (a*-oc)
+    if (graph.isAdjacentTo(a, c) && graph.getEndpoint(a, c) == Endpoint::CIRCLE) {
+        // endpoint AT b is ARROW, endpoint AT c is ARROW,
+        // and (endpoint AT a is TAIL or endpoint AT b is TAIL).
+        if ((graph.getEndpoint(a, b) == Endpoint::ARROW && graph.getEndpoint(b, c) == Endpoint::ARROW)
+                && (graph.getEndpoint(b, a) == Endpoint::TAIL
+                    || graph.getEndpoint(c, b) == Endpoint::TAIL)) {
+
+            if (!isArrowheadAllowed(a, c, graph, knowledge_)) { // arrowhead AT c
+                return;
+            }
+
+            graph.setEndpoint(a, c, Endpoint::ARROW); // endpoint AT c := ARROW
+
+            if (verbose_) {
+                logStream() << "R2: Away from ancestor " << graph.getEdge(a, c).toString() << std::endl;
+            }
+
+            changeFlag_ = true;
+        }
+    }
+}
+
+// ==========================================================================
+// ruleR3 -- FciOrient.java:506-553.  Double triangle. Zhang's R3.
+// If D*-oB, A*->B<-*C and A*-oDo-*C, and !adj(a, c), then D*->B.
+// ==========================================================================
+void FciOrient::ruleR3(Graph& graph) {
+    std::vector<NodePtr> nodes = graph.getNodes();
+
+    for (const NodePtr& b : nodes) {
+        // {a : endpoint AT b is ARROW}. Snapshot -- never recomputed even though
+        // the loop below mutates the graph.
+        std::vector<NodePtr> intoBArrows = graph.getNodesInTo(b, Endpoint::ARROW);
+
+        if (intoBArrows.size() < 2) continue;
+
+        ChoiceGenerator gen(static_cast<int>(intoBArrows.size()), 2);
+        const int* choice;
+
+        while ((choice = gen.next()) != nullptr) {
+            std::vector<NodePtr> B = asList(choice, 2, intoBArrows);
+
+            const NodePtr a = B[0];
+            const NodePtr c = B[1];
+
+            // Java: new ArrayList<>(graph.getAdjacentNodes(a)); adj.retainAll(
+            //       graph.getAdjacentNodes(c));  -- retainAll preserves adj's order.
+            std::vector<NodePtr> adj = adjacentNodesJavaOrder(graph, a);
+            std::vector<NodePtr> adjC = graph.getAdjacentNodes(c);
+            {
+                std::vector<NodePtr> kept;
+                kept.reserve(adj.size());
+                for (const NodePtr& n : adj) {
+                    if (listContains(adjC, n)) kept.push_back(n);
+                }
+                adj.swap(kept);
+            }
+
+            for (const NodePtr& d : adj) {
+                if (sameNode(d, a)) continue; // unreachable: a is never in adj(a)
+
+                // endpoint AT d is CIRCLE from both a and c (A*-oD o-*C).
+                if (graph.getEndpoint(a, d) == Endpoint::CIRCLE
+                        && graph.getEndpoint(c, d) == Endpoint::CIRCLE) {
+                    if (!graph.isAdjacentTo(a, c)) {
+                        if (graph.getEndpoint(d, b) == Endpoint::CIRCLE) { // endpoint AT b
+                            // BUG-FOR-BUG: Java says `return`, not `continue`,
+                            // abandoning all of ruleR3 for the whole graph.
+                            // FciOrient.java:536-538.
+                            if (!isArrowheadAllowed(d, b, graph, knowledge_)) { // arrowhead AT b
+                                return;
+                            }
+
+                            graph.setEndpoint(d, b, Endpoint::ARROW); // endpoint AT b := ARROW
+
+                            if (verbose_) {
+                                logStream() << "R3: Double triangle "
+                                            << graph.getEdge(d, b).toString() << std::endl;
+                            }
+
+                            changeFlag_ = true;
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+// ==========================================================================
+// ruleR4B -- FciOrient.java:568-608.  Discriminating paths. Zhang's R4.
+// ==========================================================================
+void FciOrient::ruleR4B(Graph& graph) {
+    if (doDiscriminatingPathColliderRule_ || doDiscriminatingPathTailRule_) {
+        std::vector<NodePtr> nodes = graph.getNodes();
+
+        for (const NodePtr& b : nodes) {
+            // Potential A and C candidate pairs are only those that look like
+            // this:  A <-* B o-* C
+            // possA = {a : endpoint AT a is ARROW}, i.e. b *-> a.
+            std::vector<NodePtr> possA = getNodesOutTo(graph, b, Endpoint::ARROW);
+            // possC = {c : endpoint AT b is CIRCLE}, i.e. b o-* c.
+            std::vector<NodePtr> possC = graph.getNodesInTo(b, Endpoint::CIRCLE);
+
+            for (const NodePtr& a : possA) {
+                for (const NodePtr& c : possC) {
+                    if (sameNode(a, c)) continue;
+
+                    if (!graph.isParentOf(a, c)) { // a --> c
+                        continue;
+                    }
+
+                    if (graph.getEndpoint(b, c) != Endpoint::ARROW) { // endpoint AT c
+                        continue;
+                    }
+
+                    ddpOrient(a, b, c, graph);
+                }
+            }
+        }
+    }
+}
+
+// ==========================================================================
+// ddpOrient -- FciOrient.java:615-678
+//
+// Breadth-first search "back from a" for a definite discriminating path. The
+// body of a DDP consists of colliders that are parents of c.
+// ==========================================================================
+void FciOrient::ddpOrient(const NodePtr& a, const NodePtr& b, const NodePtr& c, Graph& graph) {
+    std::deque<NodePtr> Q;
+    std::unordered_set<NodePtr> V;
+
+    NodePtr e = nullptr;
+    int distance = 0;
+
+    std::unordered_map<NodePtr, NodePtr> previous;
+
+    std::vector<NodePtr> cParents = graph.getParents(c);
+
+    Q.push_back(a);
+    V.insert(a);
+    V.insert(b);
+    previous[a] = b;
+
+    while (!Q.empty()) {
+        const NodePtr t = Q.front();
+        Q.pop_front();
+
+        // BUG-FOR-BUG: `e = t` (rather than `e = null`) means `distance` is
+        // bumped exactly once, on the very first poll, and then never again.
+        // The maxPathLength cutoff is therefore dead for any limit >= 1.
+        // FciOrient.java:638-644.
+        if (e == nullptr || e == t) {
+            e = t;
+            distance++;
+            if (distance > 0
+                    && distance > (maxDiscriminatingPathLength_ == -1
+                                       ? 1000 : maxDiscriminatingPathLength_)) {
+                return;
+            }
+        }
+
+        // {d : endpoint AT t is ARROW}
+        std::vector<NodePtr> nodesInTo = graph.getNodesInTo(t, Endpoint::ARROW);
+
+        for (const NodePtr& d : nodesInTo) {
+            if (V.find(d) != V.end()) {
+                continue;
+            }
+
+            // BUG-FOR-BUG: Java writes previous[d] = t here, *before* the
+            // collider test, and does not undo it when the test fails. It then
+            // writes the same entry again four lines later.
+            // FciOrient.java:657 and :664.
+            previous[d] = t;
+
+            NodePtr p = nullptr;
+            {
+                auto it = previous.find(t);
+                if (it != previous.end()) p = it->second;
+            }
+
+            // Java's isDefCollider returns false for a null argument
+            // (EdgeListGraph.java:273).
+            if (p == nullptr || !graph.isDefCollider(d, t, p)) {
+                continue;
+            }
+
+            previous[d] = t;
+
+            if (!graph.isAdjacentTo(d, c)) {
+                if (doDdpOrientation(d, a, b, c, graph)) {
+                    return;
+                }
+            }
+
+            if (listContains(cParents, d)) {
+                Q.push_back(d);
+                V.insert(d);
+            }
+        }
+    }
+}
+
+// ==========================================================================
+// doDdpOrientation -- FciOrient.java:849-898
+//
+// Orients the edges inside the definite discriminating path triangle.
+// ==========================================================================
+bool FciOrient::doDdpOrientation(const NodePtr& d, const NodePtr& a, const NodePtr& b,
+                                 const NodePtr& c, Graph& graph) {
+    // Java throws IllegalArgumentException here; the only caller already
+    // guarantees !isAdjacentTo(d, c), so we simply bail out.
+    if (graph.isAdjacentTo(d, c)) {
+        return false;
+    }
+
+    const std::set<NodePtr>* sepset = sepsets_.getSepset(d, c);
+
+    if (verbose_) {
+        logStream() << "Sepset for d = " << d->getName() << " and c = " << c->getName()
+                    << (sepset ? " found" : " null") << std::endl;
+    }
+
+    if (sepset == nullptr) {
+        if (verbose_) {
+            logStream() << "Must be a sepset: " << d->getName() << " and " << c->getName()
+                        << "; they're non-adjacent." << std::endl;
+        }
+        return false;
+    }
+
+    if (!setContains(*sepset, b) && doDiscriminatingPathColliderRule_) {
+        if (!isArrowheadAllowed(a, b, graph, knowledge_)) { // arrowhead AT b
+            return false;
+        }
+
+        if (!isArrowheadAllowed(c, b, graph, knowledge_)) { // arrowhead AT b
+            return false;
+        }
+
+        graph.setEndpoint(a, b, Endpoint::ARROW); // endpoint AT b := ARROW
+        graph.setEndpoint(c, b, Endpoint::ARROW); // endpoint AT b := ARROW
+
+        if (verbose_) {
+            logStream() << "R4: Definite discriminating path collider rule d = "
+                        << d->getName() << std::endl;
+        }
+
+        changeFlag_ = true;
+        // NOTE: falls through to `return false` -- the collider branch does NOT
+        // stop the BFS in ddpOrient, only the tail branch does.
+    } else if (doDiscriminatingPathTailRule_) {
+        graph.setEndpoint(c, b, Endpoint::TAIL); // endpoint AT b := TAIL, giving b --> c
+
+        if (verbose_) {
+            logStream() << "R4: Definite discriminating path tail rule d = " << d->getName()
+                        << " " << graph.getEdge(b, c).toString() << std::endl;
+        }
+
+        changeFlag_ = true;
+        return true;
+    }
+
+    return false;
+}
+
+// ==========================================================================
+// ruleR5 -- FciOrient.java:684-740.  Orient circle paths. Zhang's R5.
+// For any A o-o B, if there is an uncovered circle path u = [A,C,...,D,B] with
+// A,D nonadjacent and B,C nonadjacent, then A---B and orient all of u as tails.
+// ==========================================================================
+void FciOrient::ruleR5(Graph& graph) {
+    std::vector<NodePtr> nodes = graph.getNodes();
+
+    for (const NodePtr& a : nodes) {
+        // {b : endpoint AT a is CIRCLE}, i.e. b *-o a. Snapshot.
+        std::vector<NodePtr> adjacents = graph.getNodesInTo(a, Endpoint::CIRCLE);
+
+        for (const NodePtr& b : adjacents) {
+            if (!(graph.getEndpoint(a, b) == Endpoint::CIRCLE)) { // endpoint AT b
+                continue;
+            }
+            // We know A o-o B.
+
+            // Snapshot: computed before the mutations below, and iterated stale.
+            std::vector<std::vector<NodePtr>> ucCirclePaths = getUcCirclePaths(a, b, graph);
+
+            for (const std::vector<NodePtr>& u : ucCirclePaths) {
+                if (u.size() < 3) {
+                    continue;
+                }
+
+                const NodePtr c = u[1];
+                const NodePtr d = u[u.size() - 2];
+
+                if (graph.isAdjacentTo(a, d)) {
+                    continue;
+                }
+                if (graph.isAdjacentTo(b, c)) {
+                    continue;
+                }
+                // We know u is as required: R5 applies!
+
+                graph.setEndpoint(a, b, Endpoint::TAIL); // endpoint AT b := TAIL
+                graph.setEndpoint(b, a, Endpoint::TAIL); // endpoint AT a := TAIL
+
+                if (verbose_) {
+                    logStream() << "R5: Orient circle path " << graph.getEdge(a, b).toString()
+                                << std::endl;
+                }
+
+                orientTailPath(u, graph);
+                changeFlag_ = true;
+            }
+        }
+    }
+}
+
+// ==========================================================================
+// ruleR6R7 -- FciOrient.java:746-807.  Orient single tails.
+// R6: If A---B o-*C then A---B--*C.
+// R7: If A--oB o-*C and A,C nonadjacent, then A--oB--*C.
+// ==========================================================================
+void FciOrient::ruleR6R7(Graph& graph) {
+    std::vector<NodePtr> nodes = graph.getNodes();
+
+    for (const NodePtr& b : nodes) {
+        // Java: new ArrayList<>(graph.getAdjacentNodes(b)) -- HashSet order.
+        std::vector<NodePtr> adjacents = adjacentNodesJavaOrder(graph, b);
+
+        if (adjacents.size() < 2) {
+            continue;
+        }
+
+        ChoiceGenerator cg(static_cast<int>(adjacents.size()), 2);
+
+        for (const int* choice = cg.next(); choice != nullptr; choice = cg.next()) {
+            const NodePtr a = adjacents[static_cast<size_t>(choice[0])];
+            const NodePtr c = adjacents[static_cast<size_t>(choice[1])];
+
+            if (graph.isAdjacentTo(a, c)) {
+                continue;
+            }
+
+            if (!(graph.getEndpoint(b, a) == Endpoint::TAIL)) { // endpoint AT a: A--*B
+                continue;
+            }
+            if (!(graph.getEndpoint(c, b) == Endpoint::CIRCLE)) { // endpoint AT b: B o-*C
+                continue;
+            }
+
+            // We know A--*B o-*C.
+            // NOTE: the (a, c) pair is NOT symmetrized here, unlike R1/R2 in
+            // rulesR1R2cycle. See SUSPECTED_BUGS.md #5.
+
+            if (graph.getEndpoint(a, b) == Endpoint::TAIL) { // endpoint AT b: A---B
+                // We know A---B o-*C: R6 applies!
+                graph.setEndpoint(c, b, Endpoint::TAIL); // endpoint AT b := TAIL
+
+                if (verbose_) {
+                    logStream() << "R6: Single tails (tail) " << graph.getEdge(c, b).toString()
+                                << std::endl;
+                }
+
+                changeFlag_ = true;
+            }
+
+            if (graph.getEndpoint(a, b) == Endpoint::CIRCLE) { // endpoint AT b: A--oB
+                // Java has `if (graph.isAdjacentTo(a, c)) continue;` commented out
+                // here; the equivalent check already happened above.
+                graph.setEndpoint(c, b, Endpoint::TAIL); // endpoint AT b := TAIL
+
+                if (verbose_) {
+                    logStream() << "R7: Single tails (tail) " << graph.getEdge(c, b).toString()
+                                << std::endl;
+                }
+
+                // We know A--oB o-*C and A,C nonadjacent: R7 applies!
+                changeFlag_ = true;
+            }
+        }
+    }
+}
+
+// ==========================================================================
+// rulesR8R9R10 -- FciOrient.java:813-843
+// Tries R8, R9, R10 in that sequence on each A o-> C.
+// ==========================================================================
+void FciOrient::rulesR8R9R10(Graph& graph) {
+    std::vector<NodePtr> nodes = graph.getNodes();
+
+    for (const NodePtr& c : nodes) {
+        // {a : endpoint AT c is ARROW}. Snapshot.
+        std::vector<NodePtr> intoCArrows = graph.getNodesInTo(c, Endpoint::ARROW);
+
+        for (const NodePtr& a : intoCArrows) {
+            if (!(graph.getEndpoint(c, a) == Endpoint::CIRCLE)) { // endpoint AT a
+                continue;
+            }
+            // We know A o-> C.
+
+            // Try each of R8, R9, R10 in that order, stopping ASAP.
+            if (!ruleR8(a, c, graph)) {
+                bool b = ruleR9(a, c, graph);
+
+                if (!b) {
+                    ruleR10(a, c, graph);
+                }
+            }
+        }
+    }
+}
+
+// ==========================================================================
+// ruleR8 -- FciOrient.java:935-972
+// R8: If A o-> C and A-->B-->C or A--oB-->C, then A-->C.
+// ==========================================================================
+bool FciOrient::ruleR8(const NodePtr& a, const NodePtr& c, Graph& graph) {
+    // {b : endpoint AT c is ARROW}
+    std::vector<NodePtr> intoCArrows = graph.getNodesInTo(c, Endpoint::ARROW);
+
+    for (const NodePtr& b : intoCArrows) {
+        // We have B*->C.
+        if (!graph.isAdjacentTo(a, b)) {
+            continue;
+        }
+        if (!graph.isAdjacentTo(b, c)) {
+            continue;
+        }
+
+        // We have A*-*B*->C.
+        if (!(graph.getEndpoint(b, a) == Endpoint::TAIL)) { // endpoint AT a: A--*B
+            continue;
+        }
+        if (!(graph.getEndpoint(c, b) == Endpoint::TAIL)) { // endpoint AT b: B-->C
+            continue;
+        }
+        // We have A--*B-->C.
+
+        if (graph.getEndpoint(a, b) == Endpoint::TAIL) { // endpoint AT b
+            continue;
+        }
+        // We have A-->B-->C or A--oB-->C: R8 applies!
+
+        graph.setEndpoint(c, a, Endpoint::TAIL); // endpoint AT a := TAIL, giving A-->C
+
+        if (verbose_) {
+            logStream() << "R8: " << graph.getEdge(c, a).toString() << std::endl;
+        }
+
+        changeFlag_ = true;
+        return true;
+    }
+
+    return false;
+}
+
+// ==========================================================================
+// isPartiallyOrientedEdge -- models
+//   graph.getEdge(a, b).equals(Edges.partiallyOrientedEdge(a, b))
+// where Edges.partiallyOrientedEdge(a, b) == new Edge(a, b, CIRCLE, ARROW),
+// i.e. a o-> b, and Edge.equals compares the endpoints proximal to each node
+// (Edge.java:328-350).
+// ==========================================================================
+bool FciOrient::isPartiallyOrientedEdge(const NodePtr& a, const NodePtr& b, const Graph& graph) {
+    if (!graph.isAdjacentTo(a, b)) return false;                    // Java: e == null
+    if (graph.getEndpoint(b, a) != Endpoint::CIRCLE) return false;  // endpoint AT a
+    if (graph.getEndpoint(a, b) != Endpoint::ARROW) return false;   // endpoint AT b
+    return true;
+}
+
+// ==========================================================================
+// ruleR9 -- FciOrient.java:985-1015
+// R9: If A o-> C and there is an uncovered p.d. path u = <A,B,..,C> such that
+// C,B nonadjacent, then A-->C.
+// ==========================================================================
+bool FciOrient::ruleR9(const NodePtr& a, const NodePtr& c, Graph& graph) {
+    // Java: Edge e = graph.getEdge(a, c); if (e == null) return false;
+    //       if (!e.equals(Edges.partiallyOrientedEdge(a, c))) return false;
+    if (!isPartiallyOrientedEdge(a, c, graph)) return false;
+
+    std::vector<std::vector<NodePtr>> ucPdPsToC = getUcPdPaths(a, c, graph);
+
+    for (const std::vector<NodePtr>& u : ucPdPsToC) {
+        const NodePtr b = u[1];
+        if (graph.isAdjacentTo(b, c)) {
+            continue;
+        }
+        if (sameNode(b, c)) {
+            continue;
+        }
+        // We know u is as required: R9 applies!
+
+        graph.setEndpoint(c, a, Endpoint::TAIL); // endpoint AT a := TAIL, giving A-->C
+
+        if (verbose_) {
+            logStream() << "R9: " << graph.getEdge(c, a).toString() << std::endl;
+        }
+
+        changeFlag_ = true;
+        return true;
+    }
+
+    return false;
+}
+
+// ==========================================================================
+// fciOrientbk -- FciOrient.java:1020-1088.  Orients according to background
+// knowledge.
+// ==========================================================================
+void FciOrient::fciOrientbk(const Knowledge& bk, Graph& graph,
+                            const std::vector<NodePtr>& variables) {
+    if (verbose_) {
+        logStream() << "Starting BK Orientation." << std::endl;
+    }
+
+    // Java iterates bk.forbiddenEdgesIterator(), backed by
+    // Knowledge.getListOfForbiddenEdges() = new ArrayList<>(HashSet<KnowledgeEdge>)
+    // -- hash order we cannot reproduce. See SUSPECTED_BUGS.md, ordering notes.
+    for (const KnowledgeEdge& edge : bk.getListOfForbiddenEdges()) {
+        // Match strings to variables in the graph.
+        NodePtr from = translate(edge.from, variables);
+        NodePtr to = translate(edge.to, variables);
+
+        if (from == nullptr || to == nullptr) {
+            continue;
+        }
+
+        if (!graph.isAdjacentTo(from, to)) { // Java: graph.getEdge(from, to) == null
+            continue;
+        }
+
+        // BUG-FOR-BUG: `return`, not `continue` -- one disallowed arrowhead
+        // abandons the rest of the forbidden loop AND the entire required loop.
+        // FciOrient.java:1045-1047.
+        if (!isArrowheadAllowed(to, from, graph, knowledge_)) { // arrowhead AT from
+            return;
+        }
+
+        // Orient to *-> from
+        graph.setEndpoint(to, from, Endpoint::ARROW); // endpoint AT from := ARROW
+        changeFlag_ = true;
+
+        if (verbose_) {
+            logStream() << "Knowledge: " << graph.getEdge(from, to).toString() << std::endl;
+        }
+    }
+
+    for (const KnowledgeEdge& edge : bk.getListOfRequiredEdges()) {
+        // Match strings to variables in this graph.
+        NodePtr from = translate(edge.from, variables);
+        NodePtr to = translate(edge.to, variables);
+
+        if (from == nullptr || to == nullptr) {
+            continue;
+        }
+
+        if (!graph.isAdjacentTo(from, to)) { // Java: graph.getEdge(from, to) == null
+            continue;
+        }
+
+        // BUG-FOR-BUG: `return`, not `continue`. FciOrient.java:1075-1077.
+        if (!isArrowheadAllowed(from, to, graph, knowledge_)) { // arrowhead AT to
+            return;
+        }
+
+        graph.setEndpoint(to, from, Endpoint::TAIL);  // endpoint AT from := TAIL
+        graph.setEndpoint(from, to, Endpoint::ARROW); // endpoint AT to := ARROW, giving from-->to
+        changeFlag_ = true;
+
+        if (verbose_) {
+            logStream() << "Knowledge: " << graph.getEdge(from, to).toString() << std::endl;
+        }
+    }
+
+    if (verbose_) {
+        logStream() << "Finishing BK Orientation." << std::endl;
+    }
+}
+
+// ==========================================================================
+// ruleR10 -- FciOrient.java:1180-1247
+// R10: If A o-> C, B-->C<--D, there is an uncovered p.d. path u1=<A,M,...,B>
+// and an uncovered p.d. path u2=<A,N,...,D> with M != N and M,N nonadjacent,
+// then A-->C.
+//
+// The header names the parameters alpha/gamma; they are Java's a/c.
+// ==========================================================================
+void FciOrient::ruleR10(const NodePtr& alpha, const NodePtr& gamma, Graph& graph) {
+    const NodePtr& a = alpha;
+    const NodePtr& c = gamma;
+
+    // {b : endpoint AT c is ARROW}
+    std::vector<NodePtr> intoCArrows = graph.getNodesInTo(c, Endpoint::ARROW);
+
+    for (const NodePtr& b : intoCArrows) {
+        if (sameNode(b, a)) {
+            continue;
+        }
+
+        if (!(graph.getEndpoint(c, b) == Endpoint::TAIL)) { // endpoint AT b: B-->C
+            continue;
+        }
+        // We know A o-> C and B-->C.
+
+        for (const NodePtr& d : intoCArrows) {
+            if (sameNode(d, a) || sameNode(d, b)) {
+                continue;
+            }
+
+            // BUG-FOR-BUG: this asks for the endpoint AT c, which is ARROW by
+            // construction (d came out of getNodesInTo(c, ARROW)), so it can
+            // never be TAIL. The intended test is surely getEndpoint(c, d),
+            // matching the b-loop above. Consequence: R10 never fires.
+            // FciOrient.java:1206-1208.
+            if (!(graph.getEndpoint(d, c) == Endpoint::TAIL)) {
+                continue;
+            }
+            // We know A o-> C and B-->C<--D.
+
+            std::vector<std::vector<NodePtr>> ucPdPsToB = getUcPdPaths(a, b, graph);
+            std::vector<std::vector<NodePtr>> ucPdPsToD = getUcPdPaths(a, d, graph);
+
+            for (const std::vector<NodePtr>& u1 : ucPdPsToB) {
+                const NodePtr m = u1[1];
+
+                for (const std::vector<NodePtr>& u2 : ucPdPsToD) {
+                    const NodePtr n = u2[1];
+
+                    if (sameNode(m, n)) {
+                        continue;
+                    }
+                    if (graph.isAdjacentTo(m, n)) {
+                        continue;
+                    }
+                    // We know B,D,u1,u2 as required: R10 applies!
+
+                    graph.setEndpoint(c, a, Endpoint::TAIL); // endpoint AT a := TAIL
+
+                    if (verbose_) {
+                        logStream() << "R10: " << graph.getEdge(c, a).toString() << std::endl;
+                    }
+
+                    changeFlag_ = true;
+                    return;
+                }
+            }
+        }
+    }
+}
+
+} // namespace tetrad

@@ -154,11 +154,20 @@ All FCI rule anchors are to Zhang (2008), *Artificial Intelligence* 172(16–17)
 
 All previously identified deviations from Java 7.6.3 have been resolved:
 
-- **PC**: MeekRules R2/R3 early-return, PRIORITIZE_EXISTING collider orientation, FAS `possibleParents` knowledge checks, full Knowledge class, `pcOrientbk()`, MeekRules R4, `colliderAllowed()` knowledge check
+- **PC**: MeekRules R2/R3 early-return, PRIORITIZE_EXISTING collider orientation, FAS `possibleParents` knowledge checks, full Knowledge class, `pcOrientbk()`, `colliderAllowed()` knowledge check
+- **PC orientation order**: `sortByJavaHashOrder` applied at collider-triple enumeration in `pc.cpp`, the `orientImplied` edge sweep, and `getCommonAdjacents` — Java funnels adjacency through `HashSet<Node>` before `ChoiceGenerator` indexes it. This was the cause of PC over-orienting; `pc/medium_dag` and `pc/medium_latents` went to 1.000 edge-type agreement and arrowhead precision against the true DAG went 0.60 → 1.00.
+- **Meek R4**: Java's R4 is unreachable — `useRule4` is assigned once in the constructor from a still-empty `Knowledge` (`MeekRules.java:47,64,281`) and never recomputed. Transcribed in full but left unreachable; testing `knowledge_.isEmpty()` live (the Javadoc's intent) made C++ over-orient.
 - **FGES/BOSS/GRaSP**: `MeekRules::orientImplied` DAG→CPDAG conversion (`revertToUnshieldedColliders` logic)
 - **GFCI skeleton**: `sortByJavaHashOrder` applied in `gfciExtraEdgeRemovalStep` and `gfciR0` adjacency loops to replicate Java's `HashSet<Node>` iteration order — achieves Jaccard 1.0 on Boston EMA
 
-**One known remaining difference**: GFCI Boston `TIB <-> TST` (Java bidirected) vs `TIB --> TST` (C++ directed). Root cause: R1 in `rulesR1R2cycle` fires before a collider-setting rule in C++. Sorting `rulesR1R2cycle` adjacency was tried and reverted — it hurt GRaSP-FCI (Jaccard 0.81→0.74).
+**Remaining differences**, worst first — see `docs/fidelity/README.md` and `scoreboard/final.json`:
+
+- `grasp_fci/boston` 0.809 Jaccard / 0.412 edge-type. The worst cell. Adjacency differs, so it is upstream of the FCI rules — see the GRaSP investigation in `CHANGELOG.md`.
+- `gfci/boston` `TIB <-> TST` (Java) vs `TIB --> TST` (C++), 0.955 edge-type. **The previously documented root cause is unconfirmed.** It was attributed to R1 in `rulesR1R2cycle` firing before a collider rule, with a note that hash-ordering that loop "was tried and reverted — it hurt GRaSP-FCI (0.81→0.74)". An independent re-derivation of `FciOrient` applying Java hash order at all six `getAdjacentNodes` sites, including that one, produces byte-identical output on all 42 cells. The original regression was measured while C++ GRaSP was non-deterministic.
+- `pc/boston` 0.944 Jaccard from one missing adjacency (`PANAS_NA — worry_scale`), which is a FAS/independence-test difference, not orientation. One orientation disagreement remains, `TIB --> TST` vs `TST --> TIB`.
+- `grasp/boston` 0.862/0.880.
+
+Note that `boss_fci` is exact (1.000/1.000) on every dataset including Boston.
 
 ## Implemented Algorithms
 

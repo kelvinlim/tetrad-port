@@ -56,6 +56,60 @@ All notable changes to this project will be documented in this file.
   instrument the first divergent tuck decision on this dataset and compare it
   against Java at that point.
 
+- **PC over-oriented, and the cause was iteration order.** `EdgeListGraph.getAdjacentNodes`
+  returns `new ArrayList<>(new HashSet<Node>(...))`, so Java enumerates collider triples in
+  name-hash bucket order. `src/util/java_hash.h` has modelled that since v0.3.0 and was
+  applied in `gfci.cpp`/`star_fci.cpp`, but had never been applied anywhere in the PC path.
+  It is now applied at collider-triple enumeration in `pc.cpp`, at the `orientImplied` edge
+  sweep, and in `getCommonAdjacents`.
+
+  Edge-type agreement with the 7.6.3 JAR: `pc/medium_latents` 0.364 -> **1.000**,
+  `pc/medium_dag` 0.600 -> **1.000**, `pc/boston` 0.765 -> **0.941**. No cell regressed, and
+  the simulation ground-truth sweep is exactly neutral (0 improved, 0 regressed).
+
+  This is a correctness fix, not merely an agreement fix. On `medium_dag`, where the true DAG
+  is known and both sides produce an identical skeleton, C++ emitted 10 arrowheads of which 6
+  were correct (precision 0.60); it now emits 9, all correct (1.00), matching Java exactly.
+
+- **Meek R4 fired in C++ where Java's never does.** Java gates `meekR4` on a `useRule4` field
+  assigned exactly once, in the constructor, as `!this.knowledge.isEmpty()` — at which point
+  `knowledge` is still the freshly-constructed empty `Knowledge` (`MeekRules.java:47,64,281`).
+  `setKnowledge` never recomputes it and nothing else assigns it, so R4 is unreachable. The
+  port tested `knowledge_.isEmpty()` live, implementing the Javadoc's stated intent rather
+  than the code's behaviour, and so fired R4 on every knowledge-bearing run. R4 is now
+  transcribed in full but left unreachable, matching the JAR. No measured effect on any
+  current cell — its preconditions never fired on this data — but it was a live
+  over-orientation path.
+
+### Changed
+
+- **Java-comparison thresholds tightened to measured values.** All 25 bounds in
+  `tests/test_java_comparison.py` were far below observed performance, so the suite could not
+  distinguish a fixed cell from a broken one. Eighteen are now exact (1.0/1.0). The worst
+  offender was `boss_fci/boston`, asserting >= 0.30 edge-type agreement against an actual
+  **1.000** — a perfect result nobody knew about, hidden behind a 0.70 slack bound.
+
+- **Two claims in this changelog and `CLAUDE.md` were wrong and are corrected in
+  `docs/fidelity/README.md`.** (1) The Java oracle is *not* non-deterministic for BOSS/GRaSP:
+  every randomness path is gated off by default (`Boss.java:91,96,102`,
+  `Grasp.java:81,85,87`) and `java_oracle.py` overrides none of them; measured 5 identical
+  runs for all seven algorithms. (2) "Sorting `rulesR1R2cycle` adjacency was tried and
+  reverted — it hurt GRaSP-FCI (0.81 -> 0.74)" does not reproduce: an independent
+  re-derivation of `FciOrient` applying Java hash order at all six `getAdjacentNodes` sites,
+  including that one, produces byte-identical output on all 42 scoreboard cells. That
+  measurement was taken while C++ GRaSP was still non-deterministic.
+
+### Added
+
+- **`docs/fidelity/`** — notes from a blind re-derivation exercise: `MeekRules`/`Pc` and
+  `FciOrient` re-ported from the Java 7.6.3 sources without reference to the existing C++,
+  then diffed and scored. Includes suspected-bug lists (12 for `FciOrient`, 9 for
+  `MeekRules`/`Pc`, all quoted with Java file:line and reproduced rather than fixed),
+  Java-method correspondence tables, and the unadopted `FciOrient` derivation kept for
+  reference. The README records the method's one failure: the `FciOrient` run was not truly
+  blind, because this repo's `CLAUDE.md` and stored project memory were injected into the
+  agent's context and name two of the bugs it "found".
+
 ### Added
 
 - **`References/`** — the primary literature behind every implemented algorithm:
