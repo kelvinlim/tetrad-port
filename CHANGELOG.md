@@ -4,6 +4,15 @@ All notable changes to this project will be documented in this file.
 
 ## [Unreleased]
 
+### Changed
+
+- **License is GPL-3.0-or-later, matching upstream Tetrad.** This project is a
+  class-by-class port of CMU Tetrad, which is GNU GPL v3 or later. A language
+  translation of GPL code is a derivative work and cannot be distributed under
+  MIT. Replaced the MIT claim in `pyproject.toml` and `r/rtetrad` with
+  `GPL-3.0-or-later` / `GPL (>= 3)`, added a root `LICENSE` (full GPLv3) and
+  `COPYRIGHT` notice, and documented provenance in the README.
+
 ### Fixed
 
 - **GRaSP was non-deterministic.** `Grasp::graspDfs` iterated a

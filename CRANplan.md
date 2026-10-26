@@ -45,9 +45,9 @@ The C++ core is clean C++17 with only Eigen as a dependency. No filesystem acces
 
 ```
 r/rtetrad/
-├── DESCRIPTION
+├── DESCRIPTION                  # License: GPL (>= 3), matching Tetrad
 ├── NAMESPACE
-├── LICENSE
+├── LICENSE.note                 # Tetrad provenance; full GPLv3 is in repo root LICENSE
 ├── R/
 │   ├── rtetrad-package.R          # Package-level docs, .onLoad
 │   ├── pc.R                       # run_pc()
@@ -1109,7 +1109,7 @@ cat("\nNote: No edges between Age-Genetics or Exercise-Diet-Smoking\n")
 - [ ] `R CMD check --as-cran` returns 0 errors, 0 warnings, 0 notes
 - [ ] Builds on Linux, macOS, Windows
 - [ ] All vendored source included (no downloads at install time)
-- [ ] `DESCRIPTION` has valid `Authors@R`, `License`, `URL`, `BugReports`
+- [ ] `DESCRIPTION` has valid `Authors@R`, `License` (`GPL (>= 3)`, same as Tetrad), `URL`, `BugReports`
 - [ ] Examples run in < 5 seconds each
 - [ ] Package title in Title Case, no period at end
 - [ ] Description field > 1 sentence

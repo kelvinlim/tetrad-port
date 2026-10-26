@@ -7,9 +7,12 @@
 \title{rtetrad: Causal Discovery Algorithms from CMU's Tetrad}
 \description{
 R interface to high-performance C++ implementations of causal discovery
-algorithms from the Tetrad project (Carnegie Mellon University). Supports
-constraint-based (PC), score-based (FGES), and hybrid (GFCI) algorithms
-with background knowledge constraints.
+    algorithms from the Tetrad project (Carnegie Mellon University). Supports
+    constraint-based (PC), score-based (FGES), and hybrid (GFCI) algorithms
+    with background knowledge constraints.
+
+    Licensed under GPL (>= 3) as a derivative of Tetrad
+    (\url{https://github.com/cmu-phil/tetrad}).
 }
 \section{Algorithms}{
 

@@ -183,3 +183,18 @@ The comparison reports adjacency Jaccard and edge-type agreement per dataset. An
 ## Reference
 
 Ported from [Tetrad 7.6.3](https://github.com/cmu-phil/tetrad) (Java). Results validated against the Tetrad 7.6.3 JAR across all algorithms — see `JavaCPPComparison.md`.
+
+## License
+
+This project is free software under the [GNU General Public License
+version 3 or later](LICENSE) (`GPL-3.0-or-later`).
+
+It is a C++/Python port of [CMU Tetrad](https://github.com/cmu-phil/tetrad).
+Copyright in the original Tetrad work is held by Joseph Ramsey, Peter Spirtes,
+Clark Glymour, Richard Scheines, and Carnegie Mellon University. Copyright in
+the port modifications is held by Kelvin Lim.
+
+A language translation of GPL-licensed code is a derivative work and carries
+the same copyleft obligations: you may redistribute and modify this software
+only under GPL terms. See [COPYRIGHT](COPYRIGHT) for the short notice and
+[LICENSE](LICENSE) for the full GPLv3 text.

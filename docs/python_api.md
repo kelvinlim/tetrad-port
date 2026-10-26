@@ -334,3 +334,9 @@ Create temporal ordering knowledge dict for lagged data.
 See the [examples/python/](../examples/python/) directory for:
 - `causal_discovery_tutorial.ipynb` — Tutorial comparing PC, FGES, and GFCI
 - `knowledge_tutorial.ipynb` — Using background knowledge (tiers, forbidden/required edges)
+
+## License
+
+`tetrad-port` is free software under GPL-3.0-or-later, as a derivative of
+[CMU Tetrad](https://github.com/cmu-phil/tetrad). See the repository
+[LICENSE](../LICENSE) and [COPYRIGHT](../COPYRIGHT) files.
