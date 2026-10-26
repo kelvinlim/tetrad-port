@@ -1,6 +1,9 @@
 """
 tetrad_port: Python bindings for causal discovery algorithms from CMU's Tetrad.
 
+Licensed under GPL-3.0-or-later as a derivative of Tetrad
+(https://github.com/cmu-phil/tetrad).
+
 Provides PC, FGES, GFCI, BOSS, BOSS-FCI, GRaSP, GRaSP-FCI, and composable
 FCI algorithms with a simple facade API:
 
@@ -29,6 +32,7 @@ from tetrad_port._tetrad_cpp import (
 )
 
 __version__ = "0.3.1"
+__license__ = "GPL-3.0-or-later"
 __all__ = ["TetradPort", "Knowledge", "dict_to_knowledge"]
 
 ALGORITHMS = ("pc", "fges", "gfci", "boss", "boss_fci", "grasp", "grasp_fci", "fci")

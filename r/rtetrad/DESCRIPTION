@@ -9,7 +9,7 @@ Description: R interface to high-performance C++ implementations of causal
     Supports constraint-based (PC), score-based (FGES), and hybrid (GFCI)
     algorithms with background knowledge constraints including forbidden edges,
     required edges, and temporal tiers.
-License: MIT + file LICENSE
+License: GPL (>= 3)
 URL: https://github.com/kolim/tetrad-port
 BugReports: https://github.com/kolim/tetrad-port/issues
 Encoding: UTF-8

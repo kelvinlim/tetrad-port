@@ -1,0 +1,11 @@
+rtetrad is distributed under the GNU General Public License version 3
+or later (GPL-3.0-or-later), the same license as upstream Tetrad
+(https://github.com/cmu-phil/tetrad).
+
+This package is a derivative work of Tetrad. Copyright in the original
+algorithms is held by Joseph Ramsey, Peter Spirtes, Clark Glymour,
+Richard Scheines, and Carnegie Mellon University. Copyright in the
+C++/R port modifications is held by Kelvin Lim.
+
+The full GPLv3 text is in the repository root LICENSE file.
+See also the repository root COPYRIGHT file.

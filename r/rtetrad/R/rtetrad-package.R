@@ -5,6 +5,9 @@
 #' constraint-based (PC), score-based (FGES), and hybrid (GFCI) algorithms
 #' with background knowledge constraints.
 #'
+#' Licensed under GPL (>= 3) as a derivative of Tetrad
+#' (\url{https://github.com/cmu-phil/tetrad}).
+#'
 #' @section Algorithms:
 #' \describe{
 #'   \item{\code{\link{run_pc}}}{Constraint-based. Assumes no latent
